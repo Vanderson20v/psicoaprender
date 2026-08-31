@@ -1,0 +1,830 @@
+/**
+ * PsicoAprender Gestão — API
+ */
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const path = require('path');
+const fs = require('fs');
+const db = require('./db');
+const { seed, AREAS } = require('./seed');
+const A = require('./auth');
+
+db.load();
+seed();
+
+const app = express();
+app.set('trust proxy', true);
+app.use(express.json({ limit: '25mb' }));
+app.use(cookieParser());
+
+const hojeISO = () => new Date().toISOString().slice(0, 10);
+const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v));
+
+/* ---------------- Salas e verificação de conflitos ---------------- */
+const salas = () => db.config.get().salas || ['Sala de atendimento 1', 'Sala de atendimento 2'];
+const minutos = (hhmm) => (Number(String(hhmm).slice(0, 2)) * 60) + Number(String(hhmm).slice(3, 5));
+const fim = (hora, duracao) => minutos(hora) + (Number(duracao) || 50);
+const cruza = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
+
+/**
+ * Verifica se um horário está livre. Retorna null quando livre ou
+ * um objeto descrevendo o impedimento (sala ocupada, profissional ocupada
+ * ou bloqueio de agenda), sempre informando por quem.
+ */
+function conflitoDeAgenda({ data, hora, duracao = 50, sala, profissional_id, ignorar_id, ignorar_recorrencia }) {
+  const ini = minutos(hora), termino = fim(hora, duracao);
+  const doDia = db.atendimentos.find({ data }).filter(a =>
+    !['cancelado', 'falta'].includes(a.status) &&
+    a.id !== Number(ignorar_id) &&
+    (!ignorar_recorrencia || a.recorrencia_id !== ignorar_recorrencia));
+
+  for (const a of doDia) {
+    if (!cruza(ini, termino, minutos(a.hora), fim(a.hora, a.duracao))) continue;
+    const paciente = db.pacientes.byId(a.paciente_id);
+    const profissional = db.profissionais.byId(a.profissional_id);
+    if (sala && a.sala === sala) {
+      return {
+        motivo: 'sala',
+        mensagem: `${sala} já está ocupada em ${data.split('-').reverse().join('/')} às ${a.hora} — ${paciente?.nome || 'paciente'} com ${profissional?.nome || 'profissional'}.`,
+        atendimento: { id: a.id, hora: a.hora, duracao: a.duracao, sala: a.sala, paciente: paciente?.nome, profissional: profissional?.nome }
+      };
+    }
+    if (profissional_id && a.profissional_id === Number(profissional_id)) {
+      return {
+        motivo: 'profissional',
+        mensagem: `${profissional?.nome || 'A profissional'} já tem atendimento em ${data.split('-').reverse().join('/')} às ${a.hora} (${paciente?.nome || 'paciente'}, ${a.sala || 'sem sala'}).`,
+        atendimento: { id: a.id, hora: a.hora, duracao: a.duracao, sala: a.sala, paciente: paciente?.nome, profissional: profissional?.nome }
+      };
+    }
+  }
+
+  for (const b of db.bloqueios.find({ data })) {
+    if (!cruza(ini, termino, minutos(b.hora_inicio), minutos(b.hora_fim))) continue;
+    const mesmaSala = !b.sala || b.sala === sala;
+    const mesmaProf = !b.profissional_id || b.profissional_id === Number(profissional_id);
+    if (mesmaSala && mesmaProf) {
+      return {
+        motivo: 'bloqueio',
+        mensagem: `Horário bloqueado (${b.tipo}${b.motivo ? ' — ' + b.motivo : ''}) das ${b.hora_inicio} às ${b.hora_fim}${b.sala ? ' na ' + b.sala : ''}.`,
+        bloqueio: b
+      };
+    }
+  }
+  return null;
+}
+
+
+/* ============================ AUTENTICAÇÃO ============================ */
+
+app.post('/api/login', (req, res) => {
+  const { email, senha } = req.body || {};
+  const usuario = db.usuarios.findOne({ email: (email || '').trim().toLowerCase() });
+  if (!usuario || !usuario.ativo || !A.conferirSenha(senha || '', usuario.senha)) {
+    db.logs.insert({ usuario_id: null, usuario_nome: email || '—', acao: 'login_falhou', entidade: 'usuarios', ip: req.ip });
+    return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
+  }
+  const { token, expira } = A.criarSessao(usuario, req);
+  db.usuarios.update(usuario.id, { ultimo_acesso: new Date().toISOString() });
+  // Cookie httpOnly quando possível; em contexto de iframe/HTTPS usa SameSite=None.
+  const seguro = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.cookie('pa_sessao', token, seguro
+    ? { httpOnly: true, sameSite: 'none', secure: true, maxAge: 12 * 3600e3 }
+    : { httpOnly: true, sameSite: 'lax', maxAge: 12 * 3600e3 });
+  req.usuario = usuario;
+  A.registrarLog(req, 'login', 'usuarios', usuario.id);
+  // O token também é devolvido para clientes onde o cookie de terceiros é bloqueado.
+  res.json({ ok: true, expira, token });
+});
+
+app.post('/api/logout', (req, res) => {
+  const u = A.usuarioDaRequisicao(req);
+  if (u) { db.sessoes.removeWhere({ token: u._token }); req.usuario = u; A.registrarLog(req, 'logout', 'usuarios', u.id); }
+  res.clearCookie('pa_sessao');
+  res.json({ ok: true });
+});
+
+app.post('/api/recuperar-senha', (req, res) => {
+  const usuario = db.usuarios.findOne({ email: (req.body?.email || '').trim().toLowerCase() });
+  if (usuario) {
+    const codigo = Math.random().toString(36).slice(2, 8).toUpperCase();
+    db.usuarios.update(usuario.id, { recuperacao: { codigo, expira: new Date(Date.now() + 3600e3).toISOString() } });
+    db.logs.insert({ usuario_id: usuario.id, usuario_nome: usuario.nome, acao: 'recuperacao_solicitada', entidade: 'usuarios', entidade_id: usuario.id, ip: req.ip });
+    // Em produção: envio por e-mail. Em ambiente local, o código é exibido ao administrador.
+    return res.json({ ok: true, aviso: 'Código gerado. Solicite ao administrador da clínica.', codigo_demo: codigo });
+  }
+  res.json({ ok: true, aviso: 'Se o e-mail estiver cadastrado, o código de recuperação será enviado.' });
+});
+
+app.post('/api/redefinir-senha', (req, res) => {
+  const { email, codigo, senha } = req.body || {};
+  const usuario = db.usuarios.findOne({ email: (email || '').trim().toLowerCase() });
+  if (!usuario?.recuperacao || usuario.recuperacao.codigo !== (codigo || '').toUpperCase() || usuario.recuperacao.expira < new Date().toISOString())
+    return res.status(400).json({ erro: 'Código inválido ou expirado.' });
+  if (!senha || senha.length < 6) return res.status(400).json({ erro: 'A senha deve ter ao menos 6 caracteres.' });
+  db.usuarios.update(usuario.id, { senha: A.hashSenha(senha), recuperacao: null });
+  db.logs.insert({ usuario_id: usuario.id, usuario_nome: usuario.nome, acao: 'senha_redefinida', entidade: 'usuarios', entidade_id: usuario.id, ip: req.ip });
+  res.json({ ok: true });
+});
+
+app.get('/api/sessao', (req, res) => {
+  const u = A.usuarioDaRequisicao(req);
+  if (!u) return res.status(401).json({ erro: 'sem sessão' });
+  const p = u.profissional_id ? db.profissionais.byId(u.profissional_id) : null;
+  res.json({
+    usuario: { id: u.id, nome: u.nome, email: u.email, papel: u.papel, profissional_id: u.profissional_id, profissional: p },
+    permissoes: A.permissoesDe(u),
+    config: db.config.get()
+  });
+});
+
+app.use('/api', A.exigirLogin);
+
+/* ============================ HELPERS ============================ */
+
+const idade = (nasc) => {
+  if (!nasc) return '';
+  const d = new Date(nasc + 'T12:00:00'), h = new Date();
+  let a = h.getFullYear() - d.getFullYear();
+  const m = h.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && h.getDate() < d.getDate())) a--;
+  return a;
+};
+
+function resumoFinanceiroPaciente(id) {
+  const pg = db.pagamentos.find({ paciente_id: id });
+  const hoje = hojeISO();
+  let aberto = 0, atraso = 0, pago = 0;
+  pg.forEach(p => {
+    if (p.status === 'pago') pago += num(p.valor);
+    else if (p.status === 'cancelado') return;
+    else {
+      aberto += num(p.valor);
+      if (p.vencimento < hoje) atraso += num(p.valor);
+    }
+  });
+  return { aberto, atraso, pago, situacao: atraso > 0 ? 'Em atraso' : aberto > 0 ? 'Pendente' : 'Em dia' };
+}
+
+function enriquecerPaciente(p, perm) {
+  const hoje = hojeISO();
+  const ats = db.atendimentos.find({ paciente_id: p.id }).sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+  const proximo = ats.find(a => a.data >= hoje && ['agendado', 'confirmado'].includes(a.status)) || null;
+  const ultimo = [...ats].reverse().find(a => a.status === 'realizado') || null;
+  const resp = db.responsaveis.find({ paciente_id: p.id });
+  const prof = db.profissionais.byId(p.profissional_id);
+  const docs = db.documentos.find({ paciente_id: p.id });
+  const obrig = ['Termo de consentimento', 'Contrato'];
+  const documentacao = obrig.every(c => docs.some(d => d.categoria === c)) ? 'completa' : 'pendente';
+  const out = {
+    ...p, idade: idade(p.nascimento), responsaveis: resp, profissional: prof,
+    proximo_atendimento: proximo, ultimo_atendimento: ultimo,
+    total_atendimentos: ats.filter(a => a.status === 'realizado').length,
+    documentacao, financeiro: resumoFinanceiroPaciente(p.id)
+  };
+  if (!perm?.clinico) { delete out.queixa; delete out.objetivo; delete out.observacoes_iniciais; delete out.encaminhamento; }
+  return out;
+}
+
+/* ============================ PACIENTES ============================ */
+
+app.get('/api/pacientes', (req, res) => {
+  const lista = A.pacientesVisiveis(req.usuario).map(p => enriquecerPaciente(p, req.perm));
+  res.json(lista.sort((a, b) => a.nome.localeCompare(b.nome)));
+});
+
+app.get('/api/pacientes/:id', (req, res) => {
+  const p = db.pacientes.byId(req.params.id);
+  if (!A.podeVerPaciente(req.usuario, p)) return res.status(403).json({ erro: 'Sem acesso a este paciente.' });
+  A.registrarLog(req, 'consulta', 'pacientes', p.id, p.nome);
+  res.json(enriquecerPaciente(p, req.perm));
+});
+
+app.post('/api/pacientes', A.exigir('pacientes'), (req, res) => {
+  const { responsaveis = [], ...dados } = req.body || {};
+  if (!dados.nome) return res.status(400).json({ erro: 'Informe o nome do paciente.' });
+  const p = db.pacientes.insert({ ...dados, criado_por: req.usuario.nome });
+  responsaveis.forEach((r, i) => db.responsaveis.insert({ ...r, paciente_id: p.id, principal: i === 0 }));
+  A.registrarLog(req, 'criacao', 'pacientes', p.id, p.nome);
+  res.json(enriquecerPaciente(p, req.perm));
+});
+
+app.put('/api/pacientes/:id', A.exigir('pacientes'), (req, res) => {
+  const atual = db.pacientes.byId(req.params.id);
+  if (!A.podeVerPaciente(req.usuario, atual)) return res.status(403).json({ erro: 'Sem acesso.' });
+  const { responsaveis, ...dados } = req.body || {};
+  const p = db.pacientes.update(atual.id, dados);
+  if (Array.isArray(responsaveis)) {
+    db.responsaveis.removeWhere({ paciente_id: p.id });
+    responsaveis.forEach((r, i) => db.responsaveis.insert({ ...r, paciente_id: p.id, principal: i === 0 }));
+  }
+  A.registrarLog(req, 'alteracao', 'pacientes', p.id, p.nome);
+  res.json(enriquecerPaciente(p, req.perm));
+});
+
+app.delete('/api/pacientes/:id', (req, res) => {
+  if (req.usuario.papel !== 'admin') return res.status(403).json({ erro: 'Apenas administradores podem excluir pacientes.' });
+  const p = db.pacientes.byId(req.params.id);
+  if (!p) return res.status(404).json({ erro: 'Não encontrado.' });
+  db.pacientes.remove(p.id);
+  ['responsaveis', 'atendimentos', 'registros', 'pagamentos', 'documentos', 'relatorios', 'faltas']
+    .forEach(c => db[c].removeWhere({ paciente_id: p.id }));
+  A.registrarLog(req, 'exclusao', 'pacientes', p.id, p.nome);
+  res.json({ ok: true });
+});
+
+/* ============================ AGENDA ============================ */
+
+function enriquecerAtendimento(a) {
+  const p = db.pacientes.byId(a.paciente_id);
+  return {
+    ...a,
+    paciente: p ? { id: p.id, nome: p.nome, nascimento: p.nascimento } : null,
+    profissional: db.profissionais.byId(a.profissional_id),
+    tem_registro: !!db.registros.findOne({ atendimento_id: a.id })
+  };
+}
+
+app.get('/api/atendimentos', (req, res) => {
+  const { de, ate, paciente_id, profissional_id, status } = req.query;
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let lista = db.atendimentos.all().filter(a => visiveis.has(a.paciente_id));
+  if (de) lista = lista.filter(a => a.data >= de);
+  if (ate) lista = lista.filter(a => a.data <= ate);
+  if (paciente_id) lista = lista.filter(a => a.paciente_id === Number(paciente_id));
+  if (profissional_id) lista = lista.filter(a => a.profissional_id === Number(profissional_id));
+  if (status) lista = lista.filter(a => a.status === status);
+  res.json(lista.sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora)).map(enriquecerAtendimento));
+});
+
+app.post('/api/atendimentos', A.exigir('agenda'), (req, res) => {
+  const d = req.body || {};
+  if (!d.paciente_id || !d.data || !d.hora) return res.status(400).json({ erro: 'Paciente, data e horário são obrigatórios.' });
+  const paciente = db.pacientes.byId(d.paciente_id);
+  const sala = d.sala || paciente.sala || salas()[0];
+  const profissional_id = Number(d.profissional_id) || paciente.profissional_id;
+  const duracao = Number(d.duracao) || 50;
+  const bases = {
+    paciente_id: Number(d.paciente_id), profissional_id, hora: d.hora, duracao, sala,
+    tipo: d.tipo || 'Psicopedagogia', observacao: d.observacao || '', valor: num(d.valor) || paciente.valor_sessao
+  };
+
+  // Datas a criar (uma ou a série recorrente)
+  const datas = [];
+  if (d.recorrente && Number(d.repeticoes) > 1) {
+    const passo = d.intervalo === 'quinzenal' ? 14 : 7;
+    let data = d.data;
+    for (let i = 0; i < Math.min(Number(d.repeticoes), 60); i++) { datas.push(data); data = addDias(data, passo); }
+  } else datas.push(d.data);
+
+  // Trava: nenhuma data pode conflitar com sala, profissional ou bloqueio
+  const conflitos = [];
+  for (const data of datas) {
+    const c = conflitoDeAgenda({ data, hora: d.hora, duracao, sala, profissional_id });
+    if (c) conflitos.push({ data, ...c });
+  }
+  if (conflitos.length && !d.ignorar_conflitos) {
+    return res.status(409).json({
+      erro: conflitos.length === 1 ? conflitos[0].mensagem
+        : `${conflitos.length} das ${datas.length} datas estão ocupadas. Primeira: ${conflitos[0].mensagem}`,
+      conflitos
+    });
+  }
+
+  const rec = datas.length > 1 ? 'rec-' + Date.now() : undefined;
+  const criados = datas
+    .filter(data => !conflitos.some(c => c.data === data))   // pula datas ocupadas quando autorizado
+    .map(data => db.atendimentos.insert({ ...bases, data, status: 'agendado', recorrencia_id: rec, criado_por: req.usuario.nome }));
+
+  A.registrarLog(req, 'criacao', 'atendimentos', criados[0]?.id, `${paciente.nome} — ${criados.length} horário(s) · ${sala}`);
+  res.json(criados.map(enriquecerAtendimento));
+});
+
+app.put('/api/atendimentos/:id', A.exigir('agenda'), (req, res) => {
+  const a = db.atendimentos.byId(req.params.id);
+  if (!a) return res.status(404).json({ erro: 'Atendimento não encontrado.' });
+  const antes = { ...a };
+  const corpo = req.body || {};
+
+  // Se muda data/hora/sala/profissional, revalida a trava de conflito
+  if (['data', 'hora', 'sala', 'profissional_id', 'duracao'].some(k => corpo[k] !== undefined)) {
+    const c = conflitoDeAgenda({
+      data: corpo.data || a.data, hora: corpo.hora || a.hora,
+      duracao: corpo.duracao || a.duracao, sala: corpo.sala || a.sala,
+      profissional_id: corpo.profissional_id || a.profissional_id, ignorar_id: a.id
+    });
+    if (c) return res.status(409).json({ erro: c.mensagem, conflito: c });
+  }
+
+  const at = db.atendimentos.update(a.id, corpo);
+  if (req.body?.status === 'falta' && antes.status !== 'falta' && !db.faltas.findOne({ atendimento_id: a.id })) {
+    db.faltas.insert({
+      paciente_id: a.paciente_id, atendimento_id: a.id, data: a.data,
+      motivo: req.body.motivo_falta || '', aviso_previo: req.body.aviso_previo || 'Sem aviso',
+      reposicao: 'Não', cobrado: false
+    });
+  }
+  A.registrarLog(req, 'alteracao', 'atendimentos', a.id, `status ${antes.status} → ${at.status}`);
+  res.json(enriquecerAtendimento(at));
+});
+
+app.delete('/api/atendimentos/:id', A.exigir('agenda'), (req, res) => {
+  const a = db.atendimentos.byId(req.params.id);
+  if (!a) return res.status(404).json({ erro: 'Não encontrado.' });
+  if (req.query.serie === '1' && a.recorrencia_id) {
+    const n = db.atendimentos.removeWhere({ recorrencia_id: a.recorrencia_id, data: v => v >= a.data, status: ['agendado', 'confirmado'] });
+    A.registrarLog(req, 'exclusao', 'atendimentos', a.id, `série (${n} horários)`);
+    return res.json({ ok: true, removidos: n });
+  }
+  db.atendimentos.remove(a.id);
+  A.registrarLog(req, 'exclusao', 'atendimentos', a.id, '');
+  res.json({ ok: true });
+});
+
+/* ---- Disponibilidade: mapa de ocupação das salas em um dia ---- */
+app.get('/api/agenda/disponibilidade', (req, res) => {
+  const data = req.query.data || hojeISO();
+  const duracao = Number(req.query.duracao) || db.config.get().duracao_padrao || 50;
+  const cfg = db.config.get();
+  const hIni = parseInt((cfg.horario_inicio || '08:00').slice(0, 2), 10);
+  const hFim = parseInt((cfg.horario_fim || '18:00').slice(0, 2), 10);
+  const profissional_id = req.query.profissional_id ? Number(req.query.profissional_id) : null;
+
+  const grade = salas().map(sala => {
+    const horarios = [];
+    for (let h = hIni; h < hFim; h++) {
+      for (const m of ['00', '30']) {
+        const hora = `${String(h).padStart(2, '0')}:${m}`;
+        const c = conflitoDeAgenda({ data, hora, duracao, sala, profissional_id });
+        horarios.push({
+          hora,
+          livre: !c,
+          motivo: c?.motivo || null,
+          ocupado_por: c?.atendimento ? `${c.atendimento.paciente} · ${c.atendimento.profissional}` : (c?.bloqueio ? c.bloqueio.tipo : null),
+          detalhe: c?.mensagem || null
+        });
+      }
+    }
+    return { sala, horarios };
+  });
+  res.json({ data, duracao, salas: salas(), grade });
+});
+
+/* ---- Bloqueios de agenda ---- */
+app.get('/api/bloqueios', (req, res) => {
+  const { de, ate } = req.query;
+  let l = db.bloqueios.all();
+  if (de) l = l.filter(b => b.data >= de);
+  if (ate) l = l.filter(b => b.data <= ate);
+  res.json(l.map(b => ({ ...b, profissional: b.profissional_id ? db.profissionais.byId(b.profissional_id) : null })));
+});
+app.post('/api/bloqueios', A.exigir('agenda'), (req, res) => {
+  const b = db.bloqueios.insert({ ...req.body, criado_por: req.usuario.nome });
+  A.registrarLog(req, 'criacao', 'bloqueios', b.id, b.tipo);
+  res.json(b);
+});
+app.delete('/api/bloqueios/:id', A.exigir('agenda'), (req, res) => { db.bloqueios.remove(req.params.id); res.json({ ok: true }); });
+
+/* ============================ DIÁRIO DE ATENDIMENTO ============================ */
+
+app.get('/api/registros', A.exigir('clinico'), (req, res) => {
+  const { paciente_id, de, ate } = req.query;
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let l = db.registros.all().filter(r => visiveis.has(r.paciente_id));
+  if (paciente_id) l = l.filter(r => r.paciente_id === Number(paciente_id));
+  if (de) l = l.filter(r => r.data >= de);
+  if (ate) l = l.filter(r => r.data <= ate);
+  res.json(l.sort((a, b) => (b.data + (b.hora || '')).localeCompare(a.data + (a.hora || '')))
+    .map(r => ({ ...r, paciente: db.pacientes.byId(r.paciente_id), profissional: db.profissionais.byId(r.profissional_id) })));
+});
+
+app.post('/api/registros', A.exigir('clinico'), (req, res) => {
+  const d = req.body || {};
+  if (!d.paciente_id || !d.data) return res.status(400).json({ erro: 'Paciente e data são obrigatórios.' });
+  const existente = d.atendimento_id ? db.registros.findOne({ atendimento_id: Number(d.atendimento_id) }) : null;
+  const dados = { ...d, paciente_id: Number(d.paciente_id), profissional_id: Number(d.profissional_id) || req.usuario.profissional_id };
+  let reg;
+  if (existente) { reg = db.registros.update(existente.id, dados); A.registrarLog(req, 'alteracao', 'registros', reg.id, 'diário de atendimento'); }
+  else { reg = db.registros.insert({ ...dados, criado_por: req.usuario.nome }); A.registrarLog(req, 'criacao', 'registros', reg.id, 'diário de atendimento'); }
+  if (d.atendimento_id) db.atendimentos.update(d.atendimento_id, { status: 'realizado' });
+  res.json(reg);
+});
+
+app.put('/api/registros/:id', A.exigir('clinico'), (req, res) => {
+  const r = db.registros.update(req.params.id, req.body || {});
+  A.registrarLog(req, 'alteracao', 'registros', r?.id, 'diário de atendimento');
+  res.json(r);
+});
+
+app.get('/api/templates', A.exigir('clinico'), (req, res) => res.json(db.templates.all()));
+app.post('/api/templates', A.exigir('clinico'), (req, res) => {
+  const t = db.templates.insert({ ...req.body, profissional_id: req.usuario.profissional_id });
+  A.registrarLog(req, 'criacao', 'templates', t.id, t.nome); res.json(t);
+});
+app.delete('/api/templates/:id', A.exigir('clinico'), (req, res) => { db.templates.remove(req.params.id); res.json({ ok: true }); });
+
+/* ============================ EVOLUÇÃO ============================ */
+
+app.get('/api/evolucao/:paciente_id', A.exigir('clinico'), (req, res) => {
+  const p = db.pacientes.byId(req.params.paciente_id);
+  if (!A.podeVerPaciente(req.usuario, p)) return res.status(403).json({ erro: 'Sem acesso.' });
+  const { de, ate } = req.query;
+  let regs = db.registros.find({ paciente_id: p.id });
+  if (de) regs = regs.filter(r => r.data >= de);
+  if (ate) regs = regs.filter(r => r.data <= ate);
+  regs.sort((a, b) => b.data.localeCompare(a.data));
+
+  const ordem = { nao_trabalhado: 0, em_desenvolvimento: 1, evoluindo: 2, consolidado: 3 };
+  const indicadores = AREAS.map(area => {
+    const serie = regs.filter(r => r.areas?.[area] && r.areas[area] !== 'nao_trabalhado')
+      .map(r => ({ data: r.data, nivel: r.areas[area] }));
+    if (!serie.length) return { area, sessoes: 0, atual: null, anterior: null, tendencia: 'sem_registro' };
+    const atual = serie[0].nivel;
+    const anterior = serie[serie.length - 1].nivel;
+    const dif = ordem[atual] - ordem[anterior];
+    return { area, sessoes: serie.length, atual, anterior, tendencia: dif > 0 ? 'avanco' : dif < 0 ? 'queda' : 'estavel' };
+  });
+
+  res.json({ paciente: enriquecerPaciente(p, req.perm), linha_do_tempo: regs, indicadores });
+});
+
+/* ============================ FINANCEIRO ============================ */
+
+app.get('/api/pagamentos', A.exigir('financeiro'), (req, res) => {
+  const { paciente_id, competencia, status, de, ate } = req.query;
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let l = db.pagamentos.all().filter(p => visiveis.has(p.paciente_id));
+  if (paciente_id) l = l.filter(p => p.paciente_id === Number(paciente_id));
+  if (competencia) l = l.filter(p => p.competencia === competencia);
+  if (status) l = l.filter(p => p.status === status);
+  if (de) l = l.filter(p => p.vencimento >= de);
+  if (ate) l = l.filter(p => p.vencimento <= ate);
+  const hoje = hojeISO();
+  res.json(l.sort((a, b) => b.vencimento.localeCompare(a.vencimento)).map(p => ({
+    ...p,
+    status: p.status === 'pendente' && p.vencimento < hoje ? 'em_atraso' : p.status,
+    paciente: db.pacientes.byId(p.paciente_id),
+    profissional: db.profissionais.byId(p.profissional_id)
+  })));
+});
+
+app.post('/api/pagamentos', A.exigir('financeiro'), (req, res) => {
+  const d = req.body || {};
+  const pac = db.pacientes.byId(d.paciente_id);
+  const p = db.pagamentos.insert({
+    ...d, paciente_id: Number(d.paciente_id),
+    profissional_id: Number(d.profissional_id) || pac?.profissional_id,
+    valor: num(d.valor), sessoes: Number(d.sessoes) || 1, status: d.status || 'pendente'
+  });
+  A.registrarLog(req, 'criacao', 'pagamentos', p.id, `${pac?.nome} — R$ ${p.valor}`);
+  res.json(p);
+});
+
+app.put('/api/pagamentos/:id', A.exigir('financeiro'), (req, res) => {
+  const p = db.pagamentos.update(req.params.id, req.body || {});
+  A.registrarLog(req, 'alteracao', 'pagamentos', p?.id, `status ${p?.status}`);
+  res.json(p);
+});
+app.delete('/api/pagamentos/:id', A.exigir('financeiro'), (req, res) => {
+  db.pagamentos.remove(req.params.id); A.registrarLog(req, 'exclusao', 'pagamentos', Number(req.params.id)); res.json({ ok: true });
+});
+
+app.get('/api/financeiro/resumo', A.exigir('financeiro'), (req, res) => {
+  const mes = req.query.competencia || hojeISO().slice(0, 7);
+  const hoje = hojeISO();
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  const todos = db.pagamentos.all().filter(p => visiveis.has(p.paciente_id));
+  const doMes = todos.filter(p => p.competencia === mes);
+  const soma = (arr) => arr.reduce((s, p) => s + num(p.valor), 0);
+  const recebido = soma(doMes.filter(p => p.status === 'pago'));
+  const aReceber = soma(doMes.filter(p => p.status === 'pendente' && p.vencimento >= hoje));
+  const emAtraso = soma(todos.filter(p => p.status === 'pendente' && p.vencimento < hoje));
+
+  const porProfissional = db.profissionais.all().map(pr => ({
+    profissional: pr.nome,
+    recebido: soma(doMes.filter(p => p.profissional_id === pr.id && p.status === 'pago')),
+    previsto: soma(doMes.filter(p => p.profissional_id === pr.id && p.status !== 'cancelado'))
+  }));
+
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    const comp = d.toISOString().slice(0, 7);
+    meses.push({ competencia: comp, recebido: soma(todos.filter(p => p.competencia === comp && p.status === 'pago')) });
+  }
+
+  const atendimentosMes = db.atendimentos.all().filter(a => visiveis.has(a.paciente_id) && a.data.slice(0, 7) === mes);
+  res.json({
+    competencia: mes, recebido, a_receber: aReceber, em_atraso: emAtraso,
+    total_atendimentos: atendimentosMes.filter(a => a.status === 'realizado').length,
+    por_profissional: porProfissional, serie_mensal: meses
+  });
+});
+
+/* ============================ FALTAS ============================ */
+
+app.get('/api/faltas', (req, res) => {
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let l = db.faltas.all().filter(f => visiveis.has(f.paciente_id));
+  if (req.query.paciente_id) l = l.filter(f => f.paciente_id === Number(req.query.paciente_id));
+  res.json(l.sort((a, b) => b.data.localeCompare(a.data)).map(f => ({ ...f, paciente: db.pacientes.byId(f.paciente_id) })));
+});
+app.put('/api/faltas/:id', (req, res) => { const f = db.faltas.update(req.params.id, req.body || {}); A.registrarLog(req, 'alteracao', 'faltas', f?.id); res.json(f); });
+
+/* ============================ DOCUMENTOS ============================ */
+
+app.get('/api/documentos', A.exigir('documentos'), (req, res) => {
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let l = db.documentos.all().filter(d => visiveis.has(d.paciente_id));
+  if (req.query.paciente_id) l = l.filter(d => d.paciente_id === Number(req.query.paciente_id));
+  res.json(l.sort((a, b) => (b.enviado_em || '').localeCompare(a.enviado_em || ''))
+    .map(d => ({ ...d, arquivo: undefined, paciente: db.pacientes.byId(d.paciente_id) })));
+});
+
+app.post('/api/documentos', A.exigir('documentos'), (req, res) => {
+  const { paciente_id, nome, categoria, tipo, conteudo } = req.body || {};
+  if (!paciente_id || !nome) return res.status(400).json({ erro: 'Paciente e arquivo são obrigatórios.' });
+  let referencia = null, tamanho = 0;
+  if (conteudo) {
+    const b64 = conteudo.split(',').pop();
+    const buf = Buffer.from(b64, 'base64');
+    tamanho = buf.length;
+    referencia = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    fs.writeFileSync(path.join(db.paths.UPLOAD_DIR, referencia), buf);
+  }
+  const d = db.documentos.insert({
+    paciente_id: Number(paciente_id), nome, categoria: categoria || 'Outros',
+    tipo: tipo || 'application/octet-stream', tamanho, referencia,
+    enviado_por: req.usuario.nome, enviado_em: hojeISO()
+  });
+  A.registrarLog(req, 'upload', 'documentos', d.id, `${nome} (${d.categoria})`);
+  res.json({ ...d, arquivo: undefined });
+});
+
+app.get('/api/documentos/:id/download', A.exigir('documentos'), (req, res) => {
+  const d = db.documentos.byId(req.params.id);
+  if (!d) return res.status(404).json({ erro: 'Não encontrado.' });
+  if (!A.podeVerPaciente(req.usuario, db.pacientes.byId(d.paciente_id))) return res.status(403).json({ erro: 'Sem acesso.' });
+  A.registrarLog(req, 'download', 'documentos', d.id, d.nome);
+  const arq = d.referencia && d.referencia !== 'demo' ? path.join(db.paths.UPLOAD_DIR, d.referencia) : null;
+  if (!arq || !fs.existsSync(arq)) return res.status(404).json({ erro: 'Arquivo de demonstração — sem conteúdo armazenado.' });
+  res.setHeader('Content-Type', d.tipo);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(d.nome)}"`);
+  fs.createReadStream(arq).pipe(res);
+});
+
+app.delete('/api/documentos/:id', A.exigir('documentos'), (req, res) => {
+  const d = db.documentos.byId(req.params.id);
+  if (!d) return res.status(404).json({ erro: 'Não encontrado.' });
+  if (req.usuario.papel === 'administrativo') return res.status(403).json({ erro: 'Perfil administrativo não pode excluir documentos.' });
+  if (d.referencia && d.referencia !== 'demo') { try { fs.unlinkSync(path.join(db.paths.UPLOAD_DIR, d.referencia)); } catch (_) {} }
+  db.documentos.remove(d.id);
+  A.registrarLog(req, 'exclusao', 'documentos', d.id, d.nome);
+  res.json({ ok: true });
+});
+
+/* ============================ RELATÓRIOS ============================ */
+
+app.get('/api/relatorios', A.exigir('clinico'), (req, res) => {
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let l = db.relatorios.all().filter(r => visiveis.has(r.paciente_id));
+  if (req.query.paciente_id) l = l.filter(r => r.paciente_id === Number(req.query.paciente_id));
+  res.json(l.sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
+    .map(r => ({ ...r, paciente: db.pacientes.byId(r.paciente_id), profissional: db.profissionais.byId(r.profissional_id) })));
+});
+
+app.post('/api/relatorios', A.exigir('clinico'), (req, res) => {
+  const r = db.relatorios.insert({
+    ...req.body, paciente_id: Number(req.body.paciente_id),
+    profissional_id: Number(req.body.profissional_id) || req.usuario.profissional_id,
+    criado_por: req.usuario.nome, status: req.body.status || 'Rascunho'
+  });
+  A.registrarLog(req, 'criacao', 'relatorios', r.id, r.tipo);
+  res.json(r);
+});
+app.put('/api/relatorios/:id', A.exigir('clinico'), (req, res) => {
+  const r = db.relatorios.update(req.params.id, req.body || {}); A.registrarLog(req, 'alteracao', 'relatorios', r?.id); res.json(r);
+});
+app.delete('/api/relatorios/:id', A.exigir('clinico'), (req, res) => { db.relatorios.remove(req.params.id); res.json({ ok: true }); });
+
+/** Base factual para o relatório: apenas o que foi registrado pela profissional. */
+app.get('/api/relatorios/base/:paciente_id', A.exigir('clinico'), (req, res) => {
+  const p = db.pacientes.byId(req.params.paciente_id);
+  if (!A.podeVerPaciente(req.usuario, p)) return res.status(403).json({ erro: 'Sem acesso.' });
+  const de = req.query.de || addDias(hojeISO(), -90), ate = req.query.ate || hojeISO();
+  const regs = db.registros.find({ paciente_id: p.id }).filter(r => r.data >= de && r.data <= ate).sort((a, b) => a.data.localeCompare(b.data));
+  const ats = db.atendimentos.find({ paciente_id: p.id }).filter(a => a.data >= de && a.data <= ate);
+  const unico = (arr) => [...new Set(arr.filter(Boolean).map(s => s.trim()))];
+  res.json({
+    paciente: enriquecerPaciente(p, req.perm), periodo: { de, ate },
+    sessoes_realizadas: ats.filter(a => a.status === 'realizado').length,
+    faltas: ats.filter(a => a.status === 'falta').length,
+    registros: regs.length,
+    objetivos: unico(regs.map(r => r.objetivo)),
+    atividades: unico(regs.map(r => r.atividades)),
+    recursos: unico(regs.map(r => r.recursos)),
+    evolucoes: unico(regs.map(r => r.evolucao)),
+    dificuldades: unico(regs.map(r => r.dificuldades)),
+    orientacoes: unico(regs.map(r => r.orientacoes))
+  });
+});
+
+/* ============================ PROFISSIONAIS E USUÁRIOS ============================ */
+
+app.get('/api/profissionais', (req, res) => {
+  res.json(db.profissionais.all().map(p => ({
+    ...p,
+    usuario: db.usuarios.findOne({ profissional_id: p.id }) ? { papel: db.usuarios.findOne({ profissional_id: p.id }).papel, email: db.usuarios.findOne({ profissional_id: p.id }).email } : null,
+    pacientes: db.pacientes.find({ profissional_id: p.id }).length
+  })));
+});
+app.post('/api/profissionais', A.exigir('profissionais'), (req, res) => {
+  const { criar_usuario, senha, papel, ...dados } = req.body || {};
+  const p = db.profissionais.insert(dados);
+  if (criar_usuario && dados.email) {
+    db.usuarios.insert({ nome: dados.nome, email: dados.email.toLowerCase(), senha: A.hashSenha(senha || 'psico123'), papel: papel || 'profissional', profissional_id: p.id, ativo: true });
+  }
+  A.registrarLog(req, 'criacao', 'profissionais', p.id, p.nome);
+  res.json(p);
+});
+app.put('/api/profissionais/:id', A.exigir('profissionais'), (req, res) => {
+  const p = db.profissionais.update(req.params.id, req.body || {}); A.registrarLog(req, 'alteracao', 'profissionais', p?.id, p?.nome); res.json(p);
+});
+
+app.get('/api/usuarios', A.exigir('configuracoes'), (req, res) =>
+  res.json(db.usuarios.all().map(u => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, ativo: u.ativo, profissional_id: u.profissional_id, ultimo_acesso: u.ultimo_acesso }))));
+app.put('/api/usuarios/:id', A.exigir('configuracoes'), (req, res) => {
+  const { senha, ...dados } = req.body || {};
+  if (senha) dados.senha = A.hashSenha(senha);
+  const u = db.usuarios.update(req.params.id, dados);
+  A.registrarLog(req, 'alteracao', 'usuarios', u?.id, u?.nome);
+  res.json({ id: u.id, nome: u.nome, papel: u.papel, ativo: u.ativo });
+});
+app.post('/api/usuarios', A.exigir('configuracoes'), (req, res) => {
+  const d = req.body || {};
+  if (db.usuarios.findOne({ email: (d.email || '').toLowerCase() })) return res.status(400).json({ erro: 'E-mail já cadastrado.' });
+  const u = db.usuarios.insert({ nome: d.nome, email: (d.email || '').toLowerCase(), senha: A.hashSenha(d.senha || 'psico123'), papel: d.papel || 'profissional', profissional_id: d.profissional_id ? Number(d.profissional_id) : null, ativo: true });
+  A.registrarLog(req, 'criacao', 'usuarios', u.id, u.nome);
+  res.json({ id: u.id });
+});
+
+/* ============================ DASHBOARD, ALERTAS, BUSCA ============================ */
+
+app.get('/api/dashboard', (req, res) => {
+  const hoje = hojeISO();
+  const visiveis = A.pacientesVisiveis(req.usuario);
+  const ids = new Set(visiveis.map(p => p.id));
+  const doDia = db.atendimentos.all().filter(a => a.data === hoje && ids.has(a.paciente_id))
+    .sort((a, b) => a.hora.localeCompare(b.hora)).map(enriquecerAtendimento);
+  const agora = new Date().toTimeString().slice(0, 5);
+  const proximo = doDia.find(a => a.hora >= agora && ['agendado', 'confirmado'].includes(a.status)) || null;
+
+  const cfg = db.config.get();
+  const inicio = parseInt((cfg.horario_inicio || '08:00').slice(0, 2), 10);
+  const fim = parseInt((cfg.horario_fim || '18:00').slice(0, 2), 10);
+  const ocupados = new Set(doDia.filter(a => a.status !== 'cancelado').map(a => a.hora.slice(0, 2)));
+  const bloqueados = new Set(db.bloqueios.find({ data: hoje }).flatMap(b => {
+    const arr = []; for (let h = parseInt(b.hora_inicio, 10); h < parseInt(b.hora_fim, 10); h++) arr.push(String(h).padStart(2, '0')); return arr;
+  }));
+  let livres = 0;
+  for (let h = inicio; h < fim; h++) { const hh = String(h).padStart(2, '0'); if (!ocupados.has(hh) && !bloqueados.has(hh)) livres++; }
+
+  const resumo = {
+    agendados: doDia.filter(a => ['agendado', 'confirmado'].includes(a.status)).length,
+    realizados: doDia.filter(a => a.status === 'realizado').length,
+    faltas: doDia.filter(a => a.status === 'falta').length,
+    cancelados: doDia.filter(a => a.status === 'cancelado').length,
+    livres
+  };
+
+  let financeiro = null;
+  if (req.perm.financeiro) {
+    const mes = hoje.slice(0, 7);
+    const pgs = db.pagamentos.all().filter(p => ids.has(p.paciente_id));
+    const soma = (arr) => arr.reduce((s, p) => s + num(p.valor), 0);
+    financeiro = {
+      recebido_mes: soma(pgs.filter(p => p.competencia === mes && p.status === 'pago')),
+      a_receber: soma(pgs.filter(p => p.competencia === mes && p.status === 'pendente' && p.vencimento >= hoje)),
+      em_atraso: soma(pgs.filter(p => p.status === 'pendente' && p.vencimento < hoje))
+    };
+  }
+
+  res.json({
+    hoje, agenda_do_dia: doDia, proximo, resumo, financeiro,
+    pacientes_ativos: visiveis.filter(p => p.status === 'Ativo').length,
+    alertas: calcularAlertas(req).slice(0, 8)
+  });
+});
+
+function calcularAlertas(req) {
+  const hoje = hojeISO();
+  const alertas = [];
+  const visiveis = A.pacientesVisiveis(req.usuario);
+  const ids = new Set(visiveis.map(p => p.id));
+
+  if (req.perm.clinico) {
+    const semDiario = db.atendimentos.all().filter(a =>
+      a.status === 'realizado' && ids.has(a.paciente_id) && a.data <= hoje && a.data >= addDias(hoje, -45) &&
+      !db.registros.findOne({ atendimento_id: a.id }));
+    if (semDiario.length) alertas.push({
+      tipo: 'diario', prioridade: 'alta',
+      titulo: `${semDiario.length} atendimento${semDiario.length > 1 ? 's' : ''} sem evolução registrada`,
+      detalhe: semDiario.slice(0, 3).map(a => `${db.pacientes.byId(a.paciente_id)?.nome} — ${a.data.split('-').reverse().join('/')}`).join(' · '),
+      link: '#/atendimentos?filtro=sem_registro'
+    });
+  }
+
+  if (req.perm.financeiro) {
+    const atrasados = db.pagamentos.all().filter(p => ids.has(p.paciente_id) && p.status === 'pendente' && p.vencimento < hoje);
+    if (atrasados.length) alertas.push({
+      tipo: 'financeiro', prioridade: 'alta',
+      titulo: `${atrasados.length} pagamento${atrasados.length > 1 ? 's' : ''} em atraso`,
+      detalhe: atrasados.slice(0, 3).map(p => `${db.pacientes.byId(p.paciente_id)?.nome} — venc. ${p.vencimento.split('-').reverse().join('/')}`).join(' · '),
+      link: '#/financeiro?status=em_atraso'
+    });
+  }
+
+  visiveis.forEach(p => {
+    if (p.status !== 'Ativo' && p.status !== 'Em avaliação') return;
+    if (p.reavaliacao_prevista && p.reavaliacao_prevista <= addDias(hoje, 30) && p.reavaliacao_prevista >= addDias(hoje, -30)) {
+      alertas.push({ tipo: 'reavaliacao', prioridade: 'media', titulo: `Reavaliação de ${p.nome.split(' ')[0]} prevista`, detalhe: `Data prevista: ${p.reavaliacao_prevista.split('-').reverse().join('/')}`, link: `#/paciente/${p.id}` });
+    }
+    const ultimos = db.atendimentos.find({ paciente_id: p.id, status: 'realizado' }).map(a => a.data).sort();
+    const ultimo = ultimos[ultimos.length - 1];
+    if (ultimo && ultimo < addDias(hoje, -30)) {
+      alertas.push({ tipo: 'ausencia', prioridade: 'media', titulo: `${p.nome.split(' ')[0]} sem atendimento há mais de 30 dias`, detalhe: `Último atendimento em ${ultimo.split('-').reverse().join('/')}`, link: `#/paciente/${p.id}` });
+    }
+    const docs = db.documentos.find({ paciente_id: p.id });
+    const faltando = ['Termo de consentimento', 'Contrato'].filter(c => !docs.some(d => d.categoria === c));
+    if (faltando.length) alertas.push({ tipo: 'documento', prioridade: 'baixa', titulo: `Documentação pendente — ${p.nome.split(' ')[0]}`, detalhe: faltando.join(' · '), link: `#/paciente/${p.id}?aba=documentos` });
+    if (p.nascimento) {
+      const [, m, d] = p.nascimento.split('-');
+      const aniv = `${hoje.slice(0, 4)}-${m}-${d}`;
+      if (aniv >= hoje && aniv <= addDias(hoje, 7)) alertas.push({ tipo: 'aniversario', prioridade: 'baixa', titulo: `Aniversário de ${p.nome.split(' ')[0]}`, detalhe: `${d}/${m} — completa ${idade(p.nascimento) + 1} anos`, link: `#/paciente/${p.id}` });
+    }
+  });
+
+  const ordem = { alta: 0, media: 1, baixa: 2 };
+  return alertas.sort((a, b) => ordem[a.prioridade] - ordem[b.prioridade]);
+}
+
+app.get('/api/alertas', (req, res) => res.json(calcularAlertas(req)));
+
+const normalizar = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+app.get('/api/busca', (req, res) => {
+  const q = normalizar((req.query.q || '').trim());
+  if (q.length < 2) return res.json([]);
+  const pacientes = A.pacientesVisiveis(req.usuario)
+    .filter(p => normalizar(p.nome).includes(q) || normalizar(p.nome_social).includes(q) ||
+      db.responsaveis.find({ paciente_id: p.id }).some(r => normalizar(r.nome).includes(q)))
+    .slice(0, 8)
+    .map(p => {
+      const e = enriquecerPaciente(p, req.perm);
+      return {
+        tipo: 'paciente', id: p.id, nome: p.nome, idade: e.idade, status: p.status,
+        profissional: e.profissional?.nome, proximo: e.proximo_atendimento,
+        ultimo: e.ultimo_atendimento, financeiro: req.perm.financeiro ? e.financeiro.situacao : null,
+        responsavel: e.responsaveis[0]?.nome
+      };
+    });
+  res.json(pacientes);
+});
+
+/* ============================ CONFIG, LOGS, BACKUP ============================ */
+
+app.get('/api/config', (req, res) => res.json(db.config.get()));
+app.put('/api/config', A.exigir('configuracoes'), (req, res) => { A.registrarLog(req, 'alteracao', 'config', null, 'configurações da clínica'); res.json(db.config.set(req.body || {})); });
+
+app.get('/api/logs', A.exigir('configuracoes'), (req, res) =>
+  res.json(db.logs.all().slice(-400).reverse()));
+
+app.post('/api/backup', A.exigir('configuracoes'), (req, res) => {
+  const nome = db.backup(); A.registrarLog(req, 'backup', 'sistema', null, nome); res.json({ ok: true, arquivo: nome, lista: db.backups() });
+});
+app.get('/api/backup', A.exigir('configuracoes'), (req, res) => res.json(db.backups()));
+
+app.get('/api/exportar', A.exigir('configuracoes'), (req, res) => {
+  A.registrarLog(req, 'exportacao', 'sistema', null, 'exportação completa (LGPD)');
+  res.setHeader('Content-Disposition', 'attachment; filename="piscoaprender-dados.json"');
+  res.json(db.raw);
+});
+
+/* ============================ ESTÁTICOS ============================ */
+
+const PUB = path.join(__dirname, '..', 'public');
+app.use(express.static(PUB, {
+  extensions: ['html'],
+  setHeaders: (res, arquivo) => {
+    // HTML/JS/CSS sempre revalidados: evita o navegador servir versão antiga do sistema
+    if (/\.(html|js|css)$/.test(arquivo)) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
+app.get('/sistema', (req, res) => res.sendFile(path.join(PUB, 'sistema.html')));
+app.use((req, res) => {
+  if (req.path.startsWith('/api')) return res.status(404).json({ erro: 'Rota não encontrada.' });
+  res.sendFile(path.join(PUB, 'index.html'));
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => console.log(`PsicoAprender Gestão em http://0.0.0.0:${PORT}`));

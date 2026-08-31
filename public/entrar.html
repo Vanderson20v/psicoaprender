@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Entrar · PsicoAprender Gestão</title>
+<link rel="icon" href="/assets/marca.png">
+<link rel="stylesheet" href="/assets/sistema.css">
+<style>
+  .entrada { min-height: 100vh; display: grid; grid-template-columns: 1fr 460px; }
+  .lado {
+    background: #6f5493; color: #fff; padding: 54px 60px; display: flex; flex-direction: column; justify-content: space-between;
+    background-image: radial-gradient(circle at 82% 18%, rgba(255,255,255,.06) 0 30%, transparent 31%);
+  }
+  .lado h2 { font-size: 30px; font-weight: 600; line-height: 1.25; letter-spacing: -.02em; max-width: 460px; }
+  .lado p { color: rgba(255,255,255,.78); max-width: 430px; line-height: 1.65; }
+  .lado ul { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 12px; max-width: 430px; }
+  .lado li { display: flex; gap: 10px; color: rgba(255,255,255,.85); font-size: 14px; }
+  .lado li b { color: #fff; font-weight: 600; }
+  .formulario { background: #fff; display: flex; align-items: center; justify-content: center; padding: 40px 44px; }
+  .caixa { width: 100%; max-width: 330px; }
+  .demo { border: 1px dashed var(--linha-forte); border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--tinta-3); margin-top: 22px; line-height: 1.7; }
+  .demo b { color: var(--tinta-2); }
+  @media (max-width: 900px) { .entrada { grid-template-columns: 1fr; } .lado { display: none; } .formulario { align-items: flex-start; padding-top: 64px; } }
+</style>
+</head>
+<body>
+<div class="entrada">
+  <section class="lado">
+    <div class="marca">
+      <svg class="marca-simbolo" viewBox="0 0 32 32" style="width:30px;height:30px"><rect width="32" height="32" rx="8" fill="#ffffff" fill-opacity=".14"/><circle cx="10.5" cy="21" r="2.7" fill="#fff"/><circle cx="16" cy="15.5" r="2.7" fill="#e3b981"/><circle cx="21.5" cy="10" r="2.7" fill="#fff"/></svg>
+      <div><div class="marca-texto" style="color:#fff">PsicoAprender</div>
+      <div class="marca-sub" style="color:rgba(255,255,255,.7)">Gestão · Organização para cuidar melhor.</div></div>
+    </div>
+    <div>
+      <h2>Toda a rotina da clínica em um só lugar.</h2>
+      <p>Agenda, diário de atendimentos, evolução dos pacientes, relatórios e financeiro — sem planilhas soltas e sem depender da memória.</p>
+      <ul>
+        <li><b>Agenda</b> — recorrências, bloqueios e confirmação por WhatsApp.</li>
+        <li><b>Diário de sessão</b> — registro em poucos minutos, direto no tablet.</li>
+        <li><b>Evolução</b> — linha do tempo e indicadores por área trabalhada.</li>
+        <li><b>Relatórios</b> — construídos a partir do que foi registrado.</li>
+      </ul>
+    </div>
+    <div style="font-size:12.5px;color:rgba(255,255,255,.6)">Dados de crianças protegidos conforme a LGPD · acesso individual e auditado.</div>
+  </section>
+
+  <section class="formulario">
+    <div class="caixa">
+      <h1 style="font-size:21px;margin-bottom:4px">Entrar no sistema</h1>
+      <p style="color:var(--tinta-3);font-size:13.5px;margin:0 0 24px">Use seu acesso individual.</p>
+      <div id="msg"></div>
+      <form id="form">
+        <div class="campo"><label>E-mail</label><input type="email" name="email" required autocomplete="username" value="vanessa@psicoaprender.com.br"></div>
+        <div class="campo"><label>Senha</label><input type="password" name="senha" required autocomplete="current-password" value="psico123"></div>
+        <button class="btn btn-primario btn-bloco btn-grande" id="entrar">Entrar</button>
+      </form>
+      <button class="btn btn-sutil btn-bloco" style="margin-top:10px" id="esqueci">Esqueci minha senha</button>
+      <div class="demo">
+        <b>Acessos de demonstração</b><br>
+        Administradora — vanessa@psicoaprender.com.br<br>
+        Profissional — helen@psicoaprender.com.br<br>
+        Administrativo — recepcao@psicoaprender.com.br<br>
+        Senha para todos: <b>psico123</b>
+      </div>
+      <div style="margin-top:20px;text-align:center"><a href="/" style="font-size:13px;color:var(--tinta-3)">Voltar ao site da PsicoAprender</a></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const msg = document.getElementById('msg');
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const d = Object.fromEntries(new FormData(e.target));
+  const b = document.getElementById('entrar');
+  b.disabled = true; b.textContent = 'Entrando…';
+  try {
+    const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.erro);
+    try { localStorage.setItem('pa_token', j.token); } catch (_) { }
+    location.href = '/sistema.html?t=' + encodeURIComponent(j.token);
+  } catch (err) {
+    msg.innerHTML = '<div class="aviso erro">' + err.message + '</div>';
+    b.disabled = false; b.textContent = 'Entrar';
+  }
+});
+document.getElementById('esqueci').addEventListener('click', async () => {
+  const email = document.querySelector('[name=email]').value;
+  if (!email) return;
+  const r = await fetch('/api/recuperar-senha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+  const j = await r.json();
+  msg.innerHTML = '<div class="aviso info">' + j.aviso + (j.codigo_demo ? ' Código: <b>' + j.codigo_demo + '</b>' : '') + '</div>';
+});
+</script>
+</body>
+</html>

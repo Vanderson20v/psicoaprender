@@ -1,0 +1,21 @@
+{
+  "name": "psicoaprender-gestao",
+  "version": "1.0.0",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "teste": "node teste-fumaca.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Sistema de gestão para a PsicoAprender – Espaço de Aprendizagem",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,21 @@
+# Configuração de publicação no Render — PsicoAprender
+# O Render lê este arquivo sozinho ao criar o serviço a partir do repositório.
+services:
+  - type: web
+    name: psicoaprender
+    runtime: node
+    plan: free              # troque para "starter" quando for usar com dados reais
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DADOS_DIR      # pasta onde ficam banco, anexos e backups
+        value: /var/dados
+    # Disco persistente: sem ele, os dados somem a cada nova publicação.
+    # O plano gratuito NÃO permite disco — descomente ao migrar para o plano pago.
+    # disk:
+    #   name: dados
+    #   mountPath: /var/dados
+    #   sizeGB: 1

@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PsicoAprender — Espaço de Aprendizagem</title>
+<meta name="description" content="Espaço de aprendizagem em Brasília: psicopedagogia clínica, avaliação, neuropsicopedagogia, educação precoce, musicoterapia e orientação às famílias.">
+<link rel="icon" href="/assets/marca.png">
+<style>
+:root{
+  --creme:#f5f3ec; --creme-2:#fbfaf5; --tinta:#2a2630; --tinta-2:#524d5c; --tinta-3:#857f8c;
+  --roxo:#6f5493; --roxo-escuro:#5c4479; --roxo-claro:#f1ecf7;
+  --verde:#a9cfa4; --verde-fundo:#dcebd6; --verde-texto:#5f8a63;
+  --amarelo:#e8b93f; --rosa:#f2a3ae; --linha:#e6e2d7;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Inter","Segoe UI",-apple-system,BlinkMacSystemFont,Arial,sans-serif;color:var(--tinta);background:var(--creme);line-height:1.62;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.02em}
+a{color:inherit;text-decoration:none}
+p{margin:0 0 14px}
+img{max-width:100%}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+
+.topo{position:sticky;top:0;z-index:20;background:rgba(245,243,236,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--linha)}
+.topo .wrap{display:flex;align-items:center;gap:26px;height:78px}
+.marca{display:flex;align-items:center;gap:11px}
+.marca img{width:46px;height:46px;border-radius:10px;object-fit:cover}
+.marca-nome{font-size:18px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.marca-nome span{color:var(--roxo)}
+.marca-sub{font-size:11.5px;color:var(--verde-texto);letter-spacing:.02em}
+nav.menu{margin-left:auto;display:flex;gap:4px;font-size:14.5px;color:var(--tinta-2)}
+nav.menu .aba{padding:9px 15px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:none;font:inherit;color:inherit;white-space:nowrap}
+nav.menu .aba:hover{color:var(--roxo);background:var(--roxo-claro)}
+nav.menu .aba.ativa{color:var(--roxo);background:#fff;border-color:var(--linha);font-weight:600}
+.abas-mobile{display:none;gap:6px;overflow-x:auto;padding:10px 24px;border-bottom:1px solid var(--linha);background:var(--creme-2);-webkit-overflow-scrolling:touch}
+.abas-mobile::-webkit-scrollbar{display:none}
+.abas-mobile .aba{flex:none;padding:9px 15px;border-radius:8px;border:1px solid var(--linha);background:#fff;font:inherit;font-size:14px;color:var(--tinta-2);cursor:pointer;white-space:nowrap}
+.abas-mobile .aba.ativa{background:var(--roxo);border-color:var(--roxo);color:#fff;font-weight:600}
+.painel-aba{display:none}
+.painel-aba.ativo{display:block;animation:entra .18s ease-out}
+@keyframes entra{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:8px;border:1px solid var(--roxo);background:var(--roxo);color:#fff;font-size:14.5px;font-weight:500;cursor:pointer}
+.btn.linha{background:transparent;color:var(--roxo)}
+.btn.clara{background:#fff;color:var(--roxo);border-color:#fff}
+.btn:hover{opacity:.93}
+
+.hero{padding:70px 0 60px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-140px;top:-120px;width:620px;height:620px;background:var(--verde-fundo);border-radius:48% 52% 60% 40%/50% 45% 55% 50%;z-index:0}
+.hero-grade{display:grid;grid-template-columns:1.02fr .98fr;gap:50px;align-items:center;position:relative;z-index:1}
+.selo{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--verde-texto);background:#fff;border:1px solid var(--linha);border-radius:20px;padding:6px 14px;margin-bottom:20px}
+.hero h1{font-size:41px;line-height:1.14;margin-bottom:16px}
+.hero h1 em{font-style:normal;color:var(--roxo)}
+.hero p{font-size:16.5px;color:var(--tinta-2);max-width:520px}
+.hero-acoes{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+.hero-logo{display:flex;justify-content:center}
+.hero-logo img{max-width:400px;filter:drop-shadow(0 12px 30px rgba(111,84,147,.12))}
+
+section.bloco{padding:56px 0}
+.titulo-secao{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--verde-texto);margin-bottom:10px;font-weight:700}
+.bloco h2{font-size:28px;margin-bottom:16px;max-width:680px}
+.bloco .intro{color:var(--tinta-2);max-width:680px;font-size:15.5px}
+.grade-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:34px}
+.grade-2{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
+.cartao{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:24px}
+.cartao h3{font-size:16px;margin-bottom:8px}
+.cartao p{font-size:14.5px;color:var(--tinta-2);margin:0}
+.cartao .marcador{width:34px;height:3px;border-radius:3px;background:var(--verde);margin-bottom:14px}
+
+/* equipe — mesmo cartão usado na tela Profissionais do sistema */
+.equipe{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:34px}
+.pessoa{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:20px;display:flex;gap:14px;align-items:flex-start}
+.pessoa img{width:72px;height:72px;flex:none;border-radius:50%;object-fit:cover;object-position:center 22%}
+.pessoa .dados{min-width:0;flex:1}
+.pessoa h3{font-size:15px;font-weight:650}
+.pessoa .cargo{color:var(--roxo);font-size:13px;font-weight:600;margin:1px 0 0}
+.pessoa .formacao{font-size:13px;color:var(--tinta-3);margin:0}
+.pessoa .especialidades{font-size:13px;color:var(--tinta-3);line-height:1.45;margin:6px 0 0}
+
+.passos{display:grid;gap:22px;margin-top:30px}
+.passo{display:flex;gap:16px;align-items:flex-start}
+.passo .n{width:32px;height:32px;border-radius:50%;background:var(--roxo-claro);color:var(--roxo);display:grid;place-items:center;font-size:14px;font-weight:700;flex:none}
+.passo h3{font-size:15.5px;margin-bottom:3px}
+.passo p{font-size:14.5px;color:var(--tinta-2);margin:0}
+
+.contato{background:var(--roxo);color:#fff;border-radius:12px;padding:38px;display:flex;gap:30px;align-items:center;flex-wrap:wrap}
+.contato h2{font-size:25px;margin-bottom:8px}
+.contato p{color:rgba(255,255,255,.82);margin:0;max-width:470px}
+.infos{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;font-size:14.5px;color:var(--tinta-2);margin-top:26px}
+.rodape{padding:32px 0;font-size:13.5px;color:var(--tinta-3);display:flex;gap:16px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--linha);margin-top:60px}
+.rodape img{width:34px;height:34px;border-radius:8px;object-fit:cover}
+.mapa-local{border:1px solid var(--linha);border-radius:10px;overflow:hidden;background:#fff}
+.mapa-local .desenho{height:250px;background:
+  repeating-linear-gradient(90deg,#eef2ea 0 1px,transparent 1px 46px),
+  repeating-linear-gradient(0deg,#eef2ea 0 1px,transparent 1px 46px),var(--verde-fundo);
+  display:grid;place-items:center;position:relative}
+.pino{display:flex;flex-direction:column;align-items:center;gap:6px}
+.pino .bolha{background:#fff;border:1px solid var(--linha);border-radius:8px;padding:8px 14px;font-size:13.5px;font-weight:600;box-shadow:0 4px 14px rgba(42,38,48,.08)}
+.mapa-local .rodape-mapa{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px 18px;border-top:1px solid var(--linha);font-size:14px;color:var(--tinta-2)}
+.lista-local{display:grid;gap:14px;margin-top:4px}
+.lista-local .item{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;color:var(--tinta-2)}
+.lista-local .item strong{display:block;color:var(--tinta);font-size:14px}
+.lista-local .ic{width:32px;height:32px;flex:none;border-radius:8px;background:var(--roxo-claro);color:var(--roxo);display:grid;place-items:center}
+.zap{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:#25a366;color:#fff;display:grid;place-items:center;box-shadow:0 8px 22px rgba(37,163,102,.35);z-index:30}
+@media(max-width:900px){
+  .hero-grade,.grade-3,.grade-2,.infos{grid-template-columns:1fr;gap:28px}
+  .equipe{grid-template-columns:1fr;gap:16px}
+  nav.menu{display:none}
+  .abas-mobile{display:flex}
+  .hero h1{font-size:31px}
+  .hero{padding:44px 0}
+  section.bloco{padding:46px 0}
+  .hero-logo{order:-1}
+  .hero-logo img{max-width:250px}
+}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap">
+    <a class="marca" href="/">
+      <img src="/assets/marca.png" alt="PsicoAprender">
+      <span><span class="marca-nome">Psico<span>Aprender</span></span><br><span class="marca-sub">Espaço de Aprendizagem</span></span>
+    </a>
+    <nav class="menu" id="abas">
+      <button class="aba ativa" data-aba="inicio">Início</button>
+      <button class="aba" data-aba="sobre">Sobre nós</button>
+      <button class="aba" data-aba="equipe">Profissionais</button>
+      <button class="aba" data-aba="servicos">Serviços</button>
+      <button class="aba" data-aba="como-funciona">Como funciona</button>
+      <button class="aba" data-aba="contato">Contato</button>
+      <button class="aba" data-aba="localizacao">Localização</button>
+    </nav>
+    <a class="btn linha" href="/sistema.html">Área da profissional</a>
+  </div>
+  <div class="abas-mobile" id="abas-mobile">
+    <button class="aba ativa" data-aba="inicio">Início</button>
+    <button class="aba" data-aba="sobre">Sobre nós</button>
+    <button class="aba" data-aba="equipe">Profissionais</button>
+    <button class="aba" data-aba="servicos">Serviços</button>
+    <button class="aba" data-aba="como-funciona">Como funciona</button>
+    <button class="aba" data-aba="contato">Contato</button>
+    <button class="aba" data-aba="localizacao">Localização</button>
+  </div>
+</header>
+
+<section class="hero painel-aba ativo" id="p-inicio">
+  <div class="wrap hero-grade">
+    <div>
+      <div class="selo">Psicopedagogia e desenvolvimento infantil · Brasília/DF</div>
+      <h1>Desenvolvimento, aprendizagem e <em>acolhimento</em>.</h1>
+      <p>A PsicoAprender é um espaço de aprendizagem que acompanha crianças em suas dificuldades escolares com escuta atenta, avaliação criteriosa e um plano de trabalho construído junto com a família e a escola.</p>
+      <div class="hero-acoes">
+        <a class="btn" href="https://wa.me/5561999990000" target="_blank" rel="noopener">Agendar uma conversa</a>
+        <a class="btn linha" href="#equipe">Conheça as profissionais</a>
+        <a class="btn linha" href="#localizacao">Localização</a>
+      </div>
+    </div>
+    <div class="hero-logo"><img src="/assets/logo.png" alt="PsicoAprender — Espaço de Aprendizagem"></div>
+  </div>
+</section>
+
+<section class="bloco painel-aba" id="p-sobre">
+  <div class="wrap grade-2">
+    <div>
+      <div class="titulo-secao">Sobre nós</div>
+      <h2>Um espaço pensado para a criança e para quem cuida dela.</h2>
+    </div>
+    <div>
+      <p>A PsicoAprender reúne profissionais de psicopedagogia, neuropsicopedagogia, educação precoce e musicoterapia em um mesmo espaço, com duas salas de atendimento e agenda organizada para que cada criança tenha o seu horário e a sua rotina preservados.</p>
+      <p>Trabalhamos com acompanhamento próximo: cada sessão é registrada, os objetivos são revisados periodicamente e as famílias recebem devolutivas claras sobre a evolução.</p>
+      <p>Nosso compromisso é com a aprendizagem construída no ritmo de cada criança — sem promessas, com método e com afeto.</p>
+    </div>
+  </div>
+</section>
+
+<section class="bloco painel-aba" id="p-equipe">
+  <div class="wrap">
+    <div class="titulo-secao">Profissionais</div>
+    <h2>Quem atende na PsicoAprender</h2>
+    <p class="intro">Uma equipe de pedagogas e especialistas em aprendizagem, cada uma com sua área de atuação.</p>
+    <div class="equipe">
+
+      <article class="pessoa">
+        <img src="/assets/equipe/vanessa.jpg" alt="Vanessa Gomes">
+        <div class="dados">
+          <h3>Vanessa Gomes</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia</div>
+          <p class="especialidades">Especialista em psicopedagogia clínica e institucional. Pós-graduada em AEE — Atendimento Educacional Especializado.</p>
+        </div>
+      </article>
+
+      <article class="pessoa">
+        <img src="/assets/equipe/helen.jpg" alt="Helen Cristina">
+        <div class="dados">
+          <h3>Helen Cristina</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia — UnB</div>
+          <p class="especialidades">Especialista em transtornos e dificuldades de aprendizagem. Pós-graduanda em ABA, dislexia, distúrbios da leitura e escrita e síndrome de Down.</p>
+        </div>
+      </article>
+
+      <article class="pessoa">
+        <img src="/assets/equipe/patricia.jpg" alt="Patrícia Monteiro">
+        <div class="dados">
+          <h3>Patrícia Monteiro</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia</div>
+          <p class="especialidades">Especialista em psicopedagogia clínica e institucional. Pós-graduanda em ABA e alfabetização de crianças típicas e atípicas.</p>
+        </div>
+      </article>
+
+      <article class="pessoa">
+        <img src="/assets/equipe/jennifer.jpg" alt="Jennifer">
+        <div class="dados">
+          <h3>Jennifer</h3>
+          <div class="cargo">Musicoterapeuta e psicopedagoga</div>
+          <div class="formacao">Formação em Pedagogia — IESB</div>
+          <p class="especialidades">Especialista em musicoterapia, musicalização infantil e ABA. Pós-graduanda em psicopedagogia clínica e institucional e educação especial.</p>
+        </div>
+      </article>
+
+      <article class="pessoa">
+        <img src="/assets/equipe/josyllene.jpg" alt="Josyllene Dias">
+        <div class="dados">
+          <h3>Josyllene Dias</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia — UnB</div>
+          <p class="especialidades">Especialista em educação precoce, alfabetização e letramento. Pós-graduada em psicopedagogia clínica e institucional e orientação educacional.</p>
+        </div>
+      </article>
+
+      <article class="pessoa">
+        <img src="/assets/equipe/malu.jpg" alt="Malu Nogueira">
+        <div class="dados">
+          <h3>Malu Nogueira</h3>
+          <div class="cargo">Neuropsicopedagoga</div>
+          <div class="formacao">Formação em Letras — UnB e Pedagogia — IESB</div>
+          <p class="especialidades">Especialista em psicopedagogia clínica e institucional, neuropsicopedagogia, alfabetização e letramento. Pós-graduanda em ABA, síndrome de Down e autismo.</p>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section class="bloco painel-aba" id="p-servicos">
+  <div class="wrap">
+    <div class="titulo-secao">Serviços</div>
+    <h2>O que oferecemos</h2>
+    <p class="intro">Cada acompanhamento começa por uma escuta da família e da escola. A partir daí, definimos o formato mais adequado.</p>
+    <div class="grade-3">
+      <div class="cartao"><div class="marcador"></div><h3>Psicopedagogia clínica</h3><p>Acompanhamento semanal focado em leitura, escrita, raciocínio lógico, organização e autonomia nos estudos.</p></div>
+      <div class="cartao"><div class="marcador"></div><h3>Avaliação psicopedagógica</h3><p>Processo avaliativo com sessões estruturadas, análise do material escolar e devolutiva por escrito.</p></div>
+      <div class="cartao"><div class="marcador"></div><h3>Neuropsicopedagogia</h3><p>Intervenção voltada às funções cognitivas: atenção, memória de trabalho e funções executivas.</p></div>
+      <div class="cartao"><div class="marcador"></div><h3>Educação precoce</h3><p>Estimulação para os primeiros anos, com foco em linguagem, interação e desenvolvimento global.</p></div>
+      <div class="cartao"><div class="marcador"></div><h3>Musicoterapia e musicalização</h3><p>A música como recurso para comunicação, atenção compartilhada, ritmo e regulação.</p></div>
+      <div class="cartao"><div class="marcador"></div><h3>Orientação aos responsáveis</h3><p>Encontros de devolutiva, orientações para a rotina em casa e articulação com a escola.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="bloco painel-aba" id="p-como-funciona">
+  <div class="wrap grade-2">
+    <div>
+      <div class="titulo-secao">Como funciona</div>
+      <h2>Um caminho simples, do primeiro contato ao acompanhamento.</h2>
+      <p class="intro">Sem burocracia e sem promessas: primeiro entendemos a demanda, depois construímos o plano.</p>
+    </div>
+    <div class="passos">
+      <div class="passo"><div class="n">1</div><div><h3>Primeiro contato</h3><p>Conversa por WhatsApp para entender a queixa e verificar horários disponíveis nas nossas duas salas.</p></div></div>
+      <div class="passo"><div class="n">2</div><div><h3>Anamnese com os responsáveis</h3><p>Encontro inicial para conhecer o histórico da criança e as observações da escola.</p></div></div>
+      <div class="passo"><div class="n">3</div><div><h3>Avaliação</h3><p>Sessões de avaliação e devolutiva com o plano de trabalho proposto.</p></div></div>
+      <div class="passo"><div class="n">4</div><div><h3>Acompanhamento</h3><p>Sessões regulares com registro de cada encontro e relatórios periódicos de evolução.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="bloco painel-aba" id="p-contato">
+  <div class="wrap">
+    <div class="contato">
+      <div>
+        <h2>Vamos conversar sobre a sua criança?</h2>
+        <p>Atendimento com hora marcada, de segunda a sexta, das 8h às 18h. Responderemos com a atenção que a sua dúvida merece.</p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap">
+        <a class="btn clara" href="https://wa.me/5561999990000" target="_blank" rel="noopener">WhatsApp (61) 99999-0000</a>
+        <a class="btn" style="border-color:rgba(255,255,255,.45);background:transparent" href="https://www.instagram.com/psicoaprenderdf/" target="_blank" rel="noopener">Instagram</a>
+      </div>
+    </div>
+    <div class="infos">
+      <div><strong>Telefone e WhatsApp</strong><br>(61) 99999-0000<br>Retorno em horário comercial</div>
+      <div><strong>E-mail</strong><br>contato@psicoaprender.com.br</div>
+      <div><strong>Instagram</strong><br><a href="https://www.instagram.com/psicoaprenderdf/" target="_blank" rel="noopener" style="color:var(--roxo)">@psicoaprenderdf</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="bloco painel-aba" id="p-localizacao">
+  <div class="wrap">
+    <div class="titulo-secao">Localização</div>
+    <h2>Onde ficamos</h2>
+    <p class="intro">Nosso espaço tem duas salas de atendimento preparadas para crianças, sala de espera para os responsáveis e acesso facilitado.</p>
+    <div class="grade-2" style="margin-top:30px">
+      <div class="mapa-local">
+        <div class="desenho">
+          <div class="pino">
+            <div class="bolha">PsicoAprender · Brasília/DF</div>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="#6f5493"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>
+          </div>
+        </div>
+        <div class="rodape-mapa">
+          <span>Endereço completo enviado na confirmação do agendamento.</span>
+          <a class="btn" style="margin-left:auto;height:40px" href="https://www.google.com/maps/search/?api=1&query=Bras%C3%ADlia+DF" target="_blank" rel="noopener">Abrir no Google Maps</a>
+        </div>
+      </div>
+      <div class="lista-local">
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
+          <div><strong>Endereço</strong>Brasília / Distrito Federal<br>Espaço com duas salas de atendimento e sala de espera.</div>
+        </div>
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <div><strong>Horário de funcionamento</strong>Segunda a sexta, das 8h às 18h<br>Atendimento somente com hora marcada.</div>
+        </div>
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M4 8l8 5 8-5"/></svg></span>
+          <div><strong>Como chegar</strong>Combine o melhor horário pelo WhatsApp e enviaremos o endereço com o ponto de referência.</div>
+        </div>
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.5 20.5l1.3-4.6A8.2 8.2 0 1112 20.2a8.4 8.4 0 01-4-1z"/></svg></span>
+          <div><strong>Fale conosco</strong>(61) 99999-0000 · contato@psicoaprender.com.br</div>
+        </div>
+        <a class="btn" href="https://wa.me/5561999990000" target="_blank" rel="noopener" style="width:fit-content">Pedir o endereço no WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap rodape">
+  <img src="/assets/marca.png" alt="PsicoAprender">
+  <span>© 2026 PsicoAprender · Espaço de Aprendizagem</span>
+  <a href="/sistema.html" style="margin-left:auto;color:var(--roxo);font-weight:500">Acesso das profissionais</a>
+</footer>
+
+<a class="zap" href="https://wa.me/5561999990000" target="_blank" rel="noopener" aria-label="WhatsApp">
+  <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 20.5l1.3-4.6A8.2 8.2 0 1112 20.2a8.4 8.4 0 01-4-1z"/><path d="M9 9.5c0 3 2.5 5.5 5.4 5.5.6-.6.9-1.2.6-1.7l-1.5-.7-.9.9c-1-.4-1.9-1.3-2.3-2.3l.9-.9-.7-1.5c-.5-.3-1.1 0-1.5.7z"/>
+  </svg>
+</a>
+<script>
+(function () {
+  var botoes = document.querySelectorAll('[data-aba]');
+  var paineis = document.querySelectorAll('.painel-aba');
+
+  function abrir(nome, comHash) {
+    var alvo = document.getElementById('p-' + nome);
+    if (!alvo) { nome = 'inicio'; alvo = document.getElementById('p-inicio'); }
+    paineis.forEach(function (p) { p.classList.toggle('ativo', p === alvo); });
+    botoes.forEach(function (b) { b.classList.toggle('ativa', b.dataset.aba === nome); });
+    if (comHash) {
+      history.replaceState(null, '', nome === 'inicio' ? location.pathname : '#' + nome);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    var ativo = document.querySelector('.abas-mobile .aba.ativa');
+    if (ativo && ativo.scrollIntoView) ativo.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+
+  botoes.forEach(function (b) { b.addEventListener('click', function () { abrir(b.dataset.aba, true); }); });
+  // links internos (botões do hero, rodapé) continuam funcionando como abas
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (ev) { ev.preventDefault(); abrir(a.getAttribute('href').slice(1), true); });
+  });
+  window.addEventListener('hashchange', function () { abrir(location.hash.slice(1) || 'inicio', false); });
+  abrir(location.hash.slice(1) || 'inicio', false);
+})();
+</script>
+</body>
+</html>
