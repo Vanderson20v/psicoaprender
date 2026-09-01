@@ -547,3 +547,24 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 /* Editor do roteiro da anamnese */
 .pergunta-roteiro { display: grid; grid-template-columns: 1fr 170px 1fr 44px; gap: 8px; align-items: center; }
 @media (max-width: 900px) { .pergunta-roteiro { grid-template-columns: 1fr; } }
+
+/* Faixa de contexto do paciente (topo do registro de atendimento) */
+.contexto-paciente { background: var(--superficie-2); border: 1px solid var(--linha); border-radius: 9px; padding: 13px 15px; margin-bottom: 18px; }
+.ctx-topo { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--tinta-3); margin-bottom: 11px; font-weight: 600; }
+.ctx-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.ctx-bloco { min-width: 0; }
+.ctx-destaque { background: var(--roxo-claro); border-radius: 7px; padding: 9px 11px; margin: -9px -11px; }
+.ctx-rotulo { font-size: 11.5px; font-weight: 600; color: var(--tinta-2); margin-bottom: 6px; }
+.ctx-linha { font-size: 13px; line-height: 1.5; color: var(--tinta-2); margin-bottom: 3px; }
+.ctx-vazio { font-size: 12.5px; color: var(--tinta-3); font-style: italic; }
+.ctx-objetivos { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ctx-objetivos li { font-size: 13px; line-height: 1.4; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.ctx-area { font-weight: 600; color: var(--tinta); }
+.ctx-detalhe { color: var(--tinta-2); }
+.ctx-nivel { font-size: 11px; color: var(--tinta-3); }
+.ctx-alerta { font-size: 11px; color: #a8632c; background: #fdf1e3; border-radius: 4px; padding: 1px 6px; font-weight: 600; }
+@media (max-width: 860px) {
+  .ctx-grade { grid-template-columns: 1fr; gap: 13px; }
+  .ctx-destaque { margin: 0; }
+}
+.proximo-combinado { margin-top: 10px; font-size: 13px; line-height: 1.5; background: rgba(255,255,255,.14); border-radius: 6px; padding: 8px 11px; max-width: 620px; }

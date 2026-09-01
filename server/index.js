@@ -462,6 +462,63 @@ app.put('/api/registros/:id', A.exigir('clinico'), (req, res) => {
   res.json(r);
 });
 
+/* Contexto do paciente para a profissional decidir o atendimento de hoje.
+   Tudo aqui é FATO já registrado: o plano combinado na anamnese, o que a última
+   sessão trabalhou e o próximo passo que a própria profissional anotou.
+   O sistema não sugere conduta — apenas evita que ela precise procurar. */
+app.get('/api/pacientes/:id/contexto', A.exigir('clinico'), (req, res) => {
+  const p = db.pacientes.byId(req.params.id);
+  if (!p) return res.status(404).json({ erro: 'Paciente não encontrado.' });
+  if (!A.podeVerPaciente(req.usuario, p)) {
+    return res.status(403).json({ erro: 'Este paciente não está sob seu acompanhamento.' });
+  }
+
+  const regs = db.registros.find({ paciente_id: p.id })
+    .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  const ultimo = regs[0] || null;
+  const anamnese = db.anamneses.findOne({ paciente_id: p.id });
+
+  /* Há quantas sessões cada área do plano não é trabalhada. Serve para a
+     profissional perceber sozinha o que ficou de lado — sem nenhuma sugestão. */
+  const objetivos = (anamnese?.plano?.areas || []).map(a => {
+    let desde = 0;
+    for (const r of regs) {
+      const nivel = r.areas?.[a.area];
+      if (nivel && nivel !== 'nao_trabalhado') break;
+      desde++;
+    }
+    const trabalhada = desde < regs.length;
+    return {
+      area: a.area,
+      objetivo: a.objetivo || '',
+      nivel_atual: trabalhada ? regs[desde].areas[a.area] : null,
+      sessoes_trabalhadas: regs.filter(r => r.areas?.[a.area] && r.areas[a.area] !== 'nao_trabalhado').length,
+      sessoes_sem_registro: trabalhada ? desde : regs.length
+    };
+  });
+
+  res.json({
+    paciente: { id: p.id, nome: p.nome, objetivo: p.objetivo || '', queixa: p.queixa || '' },
+    tem_anamnese: !!anamnese,
+    plano: anamnese ? {
+      objetivo_geral: anamnese.plano?.objetivo_geral || '',
+      frequencia: anamnese.plano?.frequencia || ''
+    } : null,
+    objetivos,
+    total_sessoes: regs.length,
+    ultimo: ultimo ? {
+      id: ultimo.id,
+      data: ultimo.data,
+      objetivo: ultimo.objetivo || '',
+      atividades: ultimo.atividades || '',
+      evolucao: ultimo.evolucao || '',
+      dificuldades: ultimo.dificuldades || '',
+      orientacoes: ultimo.orientacoes || '',
+      proximo_passo: ultimo.proximo_passo || ''
+    } : null
+  });
+});
+
 app.get('/api/templates', A.exigir('clinico'), (req, res) => res.json(db.templates.all()));
 app.post('/api/templates', A.exigir('clinico'), (req, res) => {
   const t = db.templates.insert({ ...req.body, profissional_id: req.usuario.profissional_id });

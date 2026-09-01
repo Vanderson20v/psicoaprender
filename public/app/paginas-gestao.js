@@ -84,10 +84,14 @@ App.paginas.evolucao = async (alvo, rota) => {
   const id = rota.query.paciente || ativos[0]?.id;
   alvo.innerHTML = `<div class="pagina">
     ${cabecalho('Evolução', 'Linha do tempo construída a partir dos registros de sessão',
-    selecao('paciente', ativos.map(p => [p.id, p.nome]), id, 'id="sel-paciente" style="min-width:250px"'))}
+    selecao('paciente', ativos.map(p => [p.id, p.nome]), id, 'id="sel-paciente" style="min-width:250px"') +
+    (id ? `<button class="btn btn-primario" id="gerar-relatorio">${ico('relatorios')} Gerar relatório</button>` : ''))}
     <div id="area-evolucao"><div class="vazio-estado">Carregando…</div></div>
   </div>`;
   alvo.querySelector('#sel-paciente').addEventListener('change', (e) => location.hash = '/evolucao?paciente=' + e.target.value);
+  /* Ler a evolução e concluir que é hora do relatório é o caminho natural:
+     o botão evita ter de ir até Relatórios e escolher o paciente de novo. */
+  alvo.querySelector('#gerar-relatorio')?.addEventListener('click', () => modalNovoRelatorio(Number(id)));
   if (id) abaEvolucao(alvo.querySelector('#area-evolucao'), { id: Number(id) });
 };
 
@@ -494,7 +498,10 @@ App.paginas.responsaveis = async (alvo) => {
   const linhas = [];
   pacientes.forEach(p => (p.responsaveis || []).forEach(r => linhas.push({ ...r, paciente: p })));
   alvo.innerHTML = `<div class="pagina">
-    ${cabecalho('Responsáveis', `${linhas.length} contato(s) cadastrado(s)`)}
+    ${cabecalho('Responsáveis', `${linhas.length} contato(s) cadastrado(s)`,
+    `<button class="btn btn-primario" id="novo-resp">${ico('mais')} Cadastrar responsável</button>`)}
+    <div class="aviso info" style="margin-bottom:14px">O responsável é cadastrado dentro da ficha da criança,
+      porque é lá que fica o vínculo. Esta tela reúne todos os contatos num lugar só.</div>
     <div class="painel"><div class="painel-corpo sem-padding">
       ${tabela(['Responsável', 'Parentesco', 'Criança', 'Telefone', 'E-mail', ''],
       linhas.map(r => `<tr class="clicavel" data-p="${r.paciente.id}">
@@ -506,6 +513,25 @@ App.paginas.responsaveis = async (alvo) => {
           <td style="text-align:right"><button class="btn btn-sutil" data-wpp="${r.paciente.id}">${ico('whatsapp')}</button></td>
         </tr>`), { vazio: 'Nenhum responsável cadastrado.' })}
     </div></div></div>`;
+  /* Cadastrar responsável a partir daqui: escolhe a criança e abre a ficha dela,
+     que é onde o vínculo existe. Evita a tela virar um beco sem saída. */
+  alvo.querySelector('#novo-resp')?.addEventListener('click', () => {
+    if (!pacientes.length) return aviso('Cadastre uma criança primeiro — o responsável fica vinculado a ela.');
+    abrirModal({
+      titulo: 'Cadastrar responsável',
+      corpo: `<div class="campo"><label>De qual criança?</label>
+          ${selecao('paciente_id', pacientes.map(p => [p.id, p.nome]), pacientes[0].id, 'id="resp-pac"')}</div>
+        <div class="ajuda">A ficha da criança será aberta na seção de responsáveis.</div>`,
+      rodape: `<button class="btn" data-fechar>Cancelar</button>
+        <button class="btn btn-primario" id="ir">Abrir ficha</button>`,
+      aoAbrir: (f) => f.querySelector('#ir').addEventListener('click', async () => {
+        const pid = Number(f.querySelector('#resp-pac').value);
+        fecharModal(true);
+        modalPaciente(await api.get('/api/pacientes/' + pid));
+      })
+    });
+  });
+
   alvo.querySelectorAll('tr[data-p]').forEach(tr => tr.addEventListener('click', (e) => {
     if (e.target.closest('[data-wpp]')) return;
     location.hash = '/paciente/' + tr.dataset.p;

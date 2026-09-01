@@ -246,16 +246,26 @@ function modalWhatsapp(paciente, contexto = {}) {
 }
 
 /* ------------------------------ Layout ------------------------------ */
+/* O menu segue a ordem real do trabalho: o que se faz hoje, quem é atendido,
+   como o caso evolui e, por último, a gestão da clínica. Os títulos existem
+   para que a profissional encontre pela etapa, não pelo nome da tela. */
 const MENU = [
-  { rota: 'dashboard', nome: 'Dashboard', icone: 'painel' },
+  { grupo: 'O dia' },
+  { rota: 'dashboard', nome: 'Hoje', icone: 'painel' },
   { rota: 'agenda', nome: 'Agenda', icone: 'agenda' },
+  { rota: 'atendimentos', nome: 'Atendimentos', icone: 'diario', perm: 'clinico' },
+
+  { grupo: 'Quem atendemos' },
   { rota: 'pacientes', nome: 'Pacientes', icone: 'pacientes' },
   { rota: 'responsaveis', nome: 'Responsáveis', icone: 'responsaveis' },
-  { rota: 'atendimentos', nome: 'Atendimentos', icone: 'diario', perm: 'clinico' },
+
+  { grupo: 'Acompanhamento' },
   { rota: 'evolucao', nome: 'Evolução', icone: 'evolucao', perm: 'clinico' },
   { rota: 'relatorios', nome: 'Relatórios', icone: 'relatorios', perm: 'clinico' },
-  { rota: 'financeiro', nome: 'Financeiro', icone: 'financeiro', perm: 'financeiro' },
   { rota: 'documentos', nome: 'Documentos', icone: 'documentos', perm: 'documentos' },
+
+  { grupo: 'Clínica' },
+  { rota: 'financeiro', nome: 'Financeiro', icone: 'financeiro', perm: 'financeiro' },
   { rota: 'profissionais', nome: 'Profissionais', icone: 'profissionais' },
   { rota: 'configuracoes', nome: 'Configurações', icone: 'config' }
 ];
@@ -305,11 +315,22 @@ function montarLayout() {
     </div>
   </div>`;
 
+  /* Os títulos vêm do próprio MENU; um grupo sem nenhum item visível para o
+     perfil da usuária não aparece (a recepção, por exemplo, não vê o clínico). */
   const menu = document.getElementById('menu');
-  menu.innerHTML = `<div class="nav-grupo">Atendimento</div>` +
-    MENU.slice(0, 7).filter(m => !m.perm || App.permissoes[m.perm]).map(itemMenu).join('') +
-    `<div class="nav-grupo">Gestão</div>` +
-    MENU.slice(7).filter(m => !m.perm || App.permissoes[m.perm]).map(itemMenu).join('');
+  const visivel = (m) => !m.perm || App.permissoes[m.perm];
+  let html = '';
+  MENU.forEach((m, i) => {
+    if (m.grupo) {
+      const seguintes = MENU.slice(i + 1);
+      const fim = seguintes.findIndex(x => x.grupo);
+      const itens = (fim === -1 ? seguintes : seguintes.slice(0, fim)).filter(visivel);
+      if (itens.length) html += `<div class="nav-grupo">${m.grupo}</div>`;
+      return;
+    }
+    if (visivel(m)) html += itemMenu(m);
+  });
+  menu.innerHTML = html;
 
   document.body.insertAdjacentHTML('beforeend',
     `<nav class="nav-inferior">${MENU.filter(m => MENU_MOVEL.includes(m.rota) && (!m.perm || App.permissoes[m.perm]))

@@ -8,9 +8,20 @@ App.paginas.dashboard = async (alvo) => {
   const f = d.financeiro;
   const prox = d.proximo;
 
+  /* O combinado da sessão anterior aparece já no dashboard: a profissional chega
+     preparada sem precisar abrir a ficha. */
+  let combinado = '';
+  if (prox?.paciente?.id && App.permissoes.clinico) {
+    try {
+      const ctx = await api.get(`/api/pacientes/${prox.paciente.id}/contexto`);
+      if (ctx.ultimo?.proximo_passo) combinado = ctx.ultimo.proximo_passo;
+    } catch (_) { }
+  }
+
   alvo.innerHTML = `<div class="pagina">
     ${cabecalho(`Bom dia, ${primeiroNome(App.sessao.nome)}`, porExtenso(d.hoje) + ' · ' + d.pacientes_ativos + ' pacientes em acompanhamento',
-    `<button class="btn" id="novo-atendimento">${ico('agenda')} Novo horário</button>
+    `<button class="btn" id="novo-paciente">${ico('pacientes')} Novo paciente</button>
+       <button class="btn" id="novo-atendimento">${ico('agenda')} Novo horário</button>
        <button class="btn btn-primario" id="registrar-rapido">${ico('diario')} Registrar atendimento</button>`)}
 
     ${prox ? `
@@ -22,6 +33,8 @@ App.paginas.dashboard = async (alvo) => {
             <div><div class="nome">${esc(prox.paciente?.nome || '')}</div>
               <div class="meta">${esc(prox.tipo)} · ${esc(prox.profissional?.nome || '')} · ${prox.duracao} min · ${esc(prox.sala || '')}</div></div>
           </div>
+          ${combinado ? `<div class="proximo-combinado">
+            <b>Combinado da última vez:</b> ${esc(combinado)}</div>` : ''}
         </div>
         <div class="acoes">
           <button class="btn" data-abrir-paciente="${prox.paciente?.id}">Abrir ficha</button>
@@ -87,6 +100,7 @@ App.paginas.dashboard = async (alvo) => {
     e.stopPropagation(); abrirDiario({ atendimento_id: Number(el.dataset.registrar) });
   }));
   alvo.querySelectorAll('.alerta-item').forEach(el => el.addEventListener('click', () => location.hash = el.dataset.link.replace('#', '')));
+  alvo.querySelector('#novo-paciente')?.addEventListener('click', () => modalPaciente());
   alvo.querySelector('#novo-atendimento')?.addEventListener('click', () => modalAtendimento({}));
   alvo.querySelector('#registrar-rapido')?.addEventListener('click', () => abrirDiario({}));
 };
@@ -603,6 +617,56 @@ const blocoResponsavel = (r, i) => `
     </div>
   </div>`;
 
+
+
+/* Faixa de contexto: o que a profissional precisa ter na frente antes de decidir
+   o atendimento de hoje. Só mostra o que já foi registrado — plano combinado na
+   anamnese, última sessão e o próximo passo que ela mesma anotou. */
+function faixaContexto(ctx) {
+  if (!ctx) return '';
+  const nomeArea = (a) => (AREAS.find(x => x[0] === a) || [, a])[1];
+
+  const objetivos = ctx.objetivos?.length ? `
+    <div class="ctx-bloco">
+      <div class="ctx-rotulo">Objetivos do plano</div>
+      <ul class="ctx-objetivos">
+        ${ctx.objetivos.map(o => `<li>
+          <span class="ctx-area">${nomeArea(o.area)}</span>
+          ${o.objetivo ? `<span class="ctx-detalhe">${esc(o.objetivo)}</span>` : ''}
+          ${o.sessoes_sem_registro >= 3
+            ? `<span class="ctx-alerta">sem registro há ${o.sessoes_sem_registro} sessões</span>`
+            : (o.nivel_atual ? `<span class="ctx-nivel">${nivelRotulo(o.nivel_atual)}</span>` : '')}
+        </li>`).join('')}
+      </ul>
+    </div>` : (ctx.tem_anamnese ? '' : `
+    <div class="ctx-bloco">
+      <div class="ctx-rotulo">Objetivos do plano</div>
+      <div class="ctx-vazio">Sem anamnese registrada — o plano de trabalho sai dela.</div>
+    </div>`);
+
+  const ultimo = ctx.ultimo ? `
+    <div class="ctx-bloco">
+      <div class="ctx-rotulo">Última sessão · ${dataBR(ctx.ultimo.data)}</div>
+      ${ctx.ultimo.objetivo ? `<div class="ctx-linha"><b>Objetivo:</b> ${esc(ctx.ultimo.objetivo)}</div>` : ''}
+      ${ctx.ultimo.evolucao ? `<div class="ctx-linha"><b>Evolução:</b> ${esc(ctx.ultimo.evolucao)}</div>` : ''}
+      ${ctx.ultimo.dificuldades ? `<div class="ctx-linha"><b>Dificuldade:</b> ${esc(ctx.ultimo.dificuldades)}</div>` : ''}
+    </div>` : `
+    <div class="ctx-bloco"><div class="ctx-rotulo">Última sessão</div>
+      <div class="ctx-vazio">Primeiro registro deste paciente.</div></div>`;
+
+  const combinado = `
+    <div class="ctx-bloco ctx-destaque">
+      <div class="ctx-rotulo">Combinado da última vez</div>
+      ${ctx.ultimo?.proximo_passo
+        ? `<div class="ctx-linha">${esc(ctx.ultimo.proximo_passo)}</div>`
+        : '<div class="ctx-vazio">Nada anotado na sessão anterior.</div>'}
+    </div>`;
+
+  return `<div class="contexto-paciente">
+    <div class="ctx-topo">${esc(ctx.paciente.nome)} · ${ctx.total_sessoes} ${ctx.total_sessoes === 1 ? 'sessão registrada' : 'sessões registradas'}</div>
+    <div class="ctx-grade">${objetivos}${ultimo}${combinado}</div>
+  </div>`;
+}
 
 /* ============================ ANAMNESE ============================ */
 /* Primeiro encontro com a família. Preenchida no tablet, durante a conversa:
@@ -1125,13 +1189,22 @@ async function abrirDiario({ atendimento_id, paciente_id, registro }) {
   const r = registro || {};
   const areas = r.areas || {};
 
+  /* Contexto do paciente: evita a profissional ter de sair da tela para lembrar
+     o que foi combinado. Falha em silêncio — nunca impede o registro. */
+  let ctx = null;
+  const idParaContexto = paciente_id || r.paciente_id;
+  if (idParaContexto) {
+    try { ctx = await api.get(`/api/pacientes/${idParaContexto}/contexto`); } catch (_) { }
+  }
+
   const textao = (nome, rotulo, valor, linhas = 2) => `
     <div class="campo"><label>${rotulo}</label><textarea name="${nome}" rows="${linhas}">${esc(valor || '')}</textarea></div>`;
 
   abrirModal({
     titulo: registro ? 'Editar registro de sessão' : 'Registrar atendimento',
     largo: true,
-    corpo: `<form id="form-d">
+    corpo: `${faixaContexto(ctx)}
+    <form id="form-d">
       <div class="linha-campos">
         ${campo('Paciente *', selecao('paciente_id', [['', 'Selecione…'], ...pacientes.map(p => [p.id, p.nome])], paciente_id || r.paciente_id, 'required ' + (atendimento ? 'disabled' : '')))}
         ${campo('Modelo de registro', selecao('_modelo', [['', 'Sem modelo'], ...templates.map(t => [t.id, t.nome])], ''), 'Preenche os campos automaticamente; tudo pode ser editado.')}
@@ -1174,6 +1247,16 @@ async function abrirDiario({ atendimento_id, paciente_id, registro }) {
         <div class="linha-campos">
           ${textao('orientacoes', 'Orientações para casa', r.orientacoes)}
           ${textao('observacoes', 'Observações', r.observacoes)}
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Para a próxima sessão</legend>
+        <div class="campo">
+          <label>Próximo passo</label>
+          <textarea name="proximo_passo" rows="2"
+            placeholder="Opcional — o que retomar ou avançar no próximo atendimento">${esc(r.proximo_passo || '')}</textarea>
+          <div class="ajuda">Aparece no topo desta tela na próxima sessão. Escrito por você:
+            o sistema não sugere conduta.</div>
         </div>
       </fieldset>
     </form>`,
