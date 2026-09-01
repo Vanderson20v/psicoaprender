@@ -111,3 +111,25 @@ a nova versão sozinho, em poucos minutos. O link continua o mesmo.
 | Josyllene Dias | josyllene@psicoaprender.com.br | psico123 |
 | Malu Nogueira | malu@psicoaprender.com.br | psico123 |
 | Recepção (administrativo) | recepcao@psicoaprender.com.br | psico123 |
+
+
+---
+
+## Atualizar o sistema (rotina atual)
+
+Desde 01/09/2026 os dados ficam no **Turso**, um banco fora do servidor. Isso mudou a rotina:
+
+1. Baixe o zip atualizado e suba os arquivos no GitHub
+2. Espere o Render publicar
+3. Pronto — **os cadastros continuam lá**
+
+Não é mais necessário exportar antes e restaurar depois de cada publicação.
+O *Configurações → Segurança → Exportar dados* continua existindo, agora como backup
+de segurança (vale fazer de vez em quando e guardar o arquivo).
+
+Como conferir se o banco externo está ativo: no Render, em **Logs**, a primeira linha deve ser
+`Dados no Turso (banco externo).` Se disser `Dados em arquivo local`, as variáveis de ambiente
+sumiram — veja o `CONECTAR-TURSO.md`.
+
+**Exceção:** documentos anexados (PDFs, laudos) ainda ficam em disco e se perdem numa
+publicação. Enquanto ninguém anexar arquivos com frequência, não é um problema.

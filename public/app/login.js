@@ -36,19 +36,12 @@ function telaLogin(mensagem = '') {
         <div id="msg">${mensagem ? `<div class="aviso info">${esc(mensagem)}</div>` : ''}</div>
         <form id="form-login">
           <div class="campo"><label>E-mail</label>
-            <input type="email" name="email" required autocomplete="username" value="vanessa@psicoaprender.com.br"></div>
+            <input type="email" name="email" required autocomplete="username" placeholder="seu.nome@psicoaprender.com.br"></div>
           <div class="campo"><label>Senha</label>
-            <input type="password" name="senha" required autocomplete="current-password" value="psico123"></div>
+            <input type="password" name="senha" required autocomplete="current-password"></div>
           <button class="btn btn-primario btn-bloco btn-grande" id="entrar" type="submit">Entrar</button>
         </form>
         <button class="btn btn-sutil btn-bloco" style="margin-top:10px" id="esqueci">Esqueci minha senha</button>
-        <div class="demo">
-          <b>Acessos da equipe</b><br>
-          Administradora — vanessa@psicoaprender.com.br<br>
-          Profissionais — helen@, patricia@, jennifer@, josyllene@, malu@<br>
-          Administrativo — recepcao@psicoaprender.com.br<br>
-          Senha inicial de todas: <b>psico123</b>
-        </div>
         <div style="margin-top:20px;text-align:center;display:flex;gap:14px;justify-content:center">
           <a href="/" style="font-size:13px;color:var(--tinta-3)">Voltar ao site</a>
           <a href="/sistema.html" target="_blank" rel="noopener" style="font-size:13px;color:var(--tinta-3)">Abrir em nova aba</a>

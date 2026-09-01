@@ -1,5 +1,9 @@
 # Conectar o sistema ao Turso (dados que não se perdem)
 
+> **STATUS: CONCLUÍDO em 01/09/2026.** O banco `psicoaprender` está criado, as variáveis
+> estão no Render e a produção já grava no banco externo (verificado: um paciente cadastrado
+> pelo site apareceu no Turso em segundos). O passo a passo abaixo fica como referência.
+
 Depois disto, publicar uma atualização **deixa de apagar** os cadastros das profissionais.
 São 5 passos, uma vez só. Custo: zero (plano gratuito do Turso).
 
