@@ -420,6 +420,7 @@ async function navegar() {
   alvo.innerHTML = `<div class="pagina"><div class="vazio-estado">Carregando…</div></div>`;
   try {
     await pagina(alvo, rota);
+    rotularTabelas(alvo);
     window.scrollTo(0, 0);
   } catch (e) {
     alvo.innerHTML = `<div class="pagina"><div class="aviso erro">${esc(e.message)}</div></div>`;
@@ -441,6 +442,22 @@ const indicador = (rotulo, valor, nota = '', classe = '') => `
   </div>`;
 
 const vazio = (texto) => `<div class="vazio-estado">${ico('checar')}<div>${esc(texto)}</div></div>`;
+
+/**
+ * Copia o texto do cabeçalho para cada célula (data-rotulo).
+ * No celular a tabela vira lista de cartões e usa esse rótulo como legenda.
+ */
+function rotularTabelas(raiz = document) {
+  raiz.querySelectorAll('table').forEach(t => {
+    const titulos = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    if (!titulos.length) return;
+    t.querySelectorAll('tbody tr').forEach(tr => {
+      [...tr.children].forEach((td, i) => {
+        if (titulos[i] && !td.dataset.rotulo) td.dataset.rotulo = titulos[i];
+      });
+    });
+  });
+}
 
 function tabela(colunas, linhas, opcoes = {}) {
   if (!linhas.length) return vazio(opcoes.vazio || 'Nenhum registro encontrado.');

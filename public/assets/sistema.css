@@ -328,36 +328,107 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   :root { --lateral: 0px; }
   body { font-size: 15px; }
   .lateral {
-    transform: translateX(-100%); transition: transform .2s ease; width: 260px;
+    transform: translateX(-100%); transition: transform .2s ease; width: 82vw; max-width: 300px;
     box-shadow: 0 0 40px rgba(0,0,0,.18);
   }
   .lateral.aberta { transform: none; }
-  .conteudo { margin-left: 0; padding-bottom: 66px; }
+  .conteudo { margin-left: 0; padding-bottom: 72px; }
   .abrir-menu { display: inline-flex; }
-  .pagina { padding: 16px; }
+  .pagina { padding: 14px 12px 20px; }
   .g-2, .g-3, .g-4 { grid-template-columns: 1fr; }
-  .topo { padding: 0 14px; }
+  .topo { padding: 0 10px; gap: 8px; height: 54px; }
+  .busca-global input { font-size: 16px; }
+
+  /* --- Cabeçalho da página: título em cima, ações roláveis embaixo --- */
+  .pagina-cabecalho { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 14px; }
+  .pagina-cabecalho h1 { font-size: 20px; }
+  .cabecalho-acoes {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+    margin: 0 -12px; padding-left: 12px; padding-right: 12px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .cabecalho-acoes::-webkit-scrollbar { display: none; }
+  .cabecalho-acoes > * { flex: none; }
+  .cabecalho-acoes select { min-width: 150px; }
+  .escolhas { flex: none; }
+
+  /* --- Tabelas viram cartões (sem rolagem lateral) --- */
+  .tabela-rolagem { overflow-x: visible; }
+  .tabela-rolagem table, .tabela-rolagem thead, .tabela-rolagem tbody,
+  .tabela-rolagem tr, .tabela-rolagem td { display: block; width: 100%; }
+  .tabela-rolagem thead { display: none; }
+  .tabela-rolagem tr {
+    border: 1px solid var(--linha); border-radius: 10px; margin: 0 0 10px; padding: 4px 0;
+    background: #fff;
+  }
+  .tabela-rolagem tr:last-child { margin-bottom: 0; }
+  .tabela-rolagem td {
+    border: 0; padding: 7px 14px; display: flex; gap: 12px; align-items: center;
+    justify-content: space-between; text-align: right; min-height: 0;
+  }
+  .tabela-rolagem td::before {
+    content: attr(data-rotulo); flex: none; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--tinta-3); font-weight: 600; text-align: left;
+  }
+  .tabela-rolagem td:empty { display: none; }
+  .tabela-rolagem td[data-rotulo=""]::before { display: none; }
+  .tabela-rolagem td.td-principal { font-size: 15.5px; font-weight: 600; }
+  .tabela-rolagem tr.clicavel { cursor: pointer; }
+  .tabela-rolagem tr.clicavel:active { background: var(--roxo-claro); }
+
+  /* --- Agenda: rolagem horizontal com colunas legíveis --- */
+  .agenda-rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .agenda-grade, .agenda-cabecalho { grid-template-columns: 44px repeat(var(--colunas, 1), minmax(128px, 1fr)); }
+  .agenda-cabecalho { position: static; }
+  .agenda-cabecalho div { padding: 7px 6px; font-size: 11.5px; }
+  .agenda-hora { font-size: 10.5px; padding: 4px; height: 74px; }
+  .agenda-celula { height: 74px; }
+  .evento { font-size: 12px; padding: 4px 6px; }
+  .evento .p-meta, .evento .p-sala { font-size: 10.5px; }
+  .mapa-linha { grid-template-columns: 46px repeat(var(--salas, 2), minmax(0, 1fr)); gap: 6px; }
+  .mapa-vaga { padding: 8px 7px; font-size: 12px; min-height: 46px; }
+  .mapa-vaga .quem { font-size: 10.5px; }
+
+  /* --- Toque confortável --- */
+  .btn { height: 44px; padding: 0 16px; }
+  .btn-icone { width: 44px; }
+  input, select, textarea { min-height: 46px; font-size: 16px; }
+  .escolha { padding: 11px 15px; font-size: 14px; }
+  .abas button { padding: 12px 14px; }
+  .chip-area, .tag { font-size: 12px; }
+
+  /* --- Modais em tela cheia, com rodapé fixo --- */
+  .modal-fundo { padding: 0; }
+  .modal { max-width: none; border-radius: 0; min-height: 100dvh; display: flex; flex-direction: column; }
+  .modal-topo { border-radius: 0; position: sticky; top: 0; background: #fff; z-index: 2; }
+  .modal-corpo { flex: 1; }
+  .modal-rodape {
+    border-radius: 0; position: sticky; bottom: 0; background: #fff; gap: 8px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .modal-rodape .btn { flex: 1; }
+  .linha-campos, .linha-campos.tres { grid-template-columns: 1fr; }
+
+  /* --- Barra inferior de atalhos --- */
   .nav-inferior {
-    display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: #fff;
-    border-top: 1px solid var(--linha); z-index: 45; padding-bottom: env(safe-area-inset-bottom);
+    display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+    border-top: 1px solid var(--linha); z-index: 45;
+    padding-bottom: env(safe-area-inset-bottom); height: calc(60px + env(safe-area-inset-bottom));
   }
   .nav-inferior a {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    font-size: 10.5px; color: var(--tinta-3);
+    font-size: 10.5px; color: var(--tinta-3); padding-top: 6px;
   }
-  .nav-inferior a svg { width: 21px; height: 21px; }
+  .nav-inferior a svg { width: 22px; height: 22px; }
   .nav-inferior a.ativo { color: var(--roxo); font-weight: 600; }
-  .btn { height: 42px; padding: 0 16px; }
-  .btn-icone { width: 42px; }
-  input, select, textarea { min-height: 44px; font-size: 16px; }
-  .escolha { padding: 9px 15px; font-size: 14px; }
-  td, th { padding: 12px 14px; }
-  .modal-fundo { padding: 0; }
-  .modal { max-width: none; border-radius: 0; min-height: 100vh; }
-  .modal-topo, .modal-rodape { border-radius: 0; }
-  .abas button { padding: 12px 14px; }
+  .nav-inferior a:active { background: var(--roxo-claro); }
+
   .fundo-menu { position: fixed; inset: 0; background: rgba(0,0,0,.32); z-index: 39; }
+  .indicador .valor { font-size: 24px; }
+  .painel-cabecalho { flex-wrap: wrap; gap: 8px; }
+  .doc-folha { padding: 18px !important; }
 }
+
 @media (min-width: 721px) { .fundo-menu { display: none !important; } }
 
 /* Faixa intermediária (tablet em pé / janela estreita): lateral fixa, porém compacta. */

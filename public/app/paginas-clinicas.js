@@ -135,7 +135,7 @@ App.paginas.agenda = async (alvo) => {
     ${e.visao === 'salas' ? '' : `<div class="aviso info" style="display:flex;gap:8px;align-items:center">
         Para conferir a ocupação das duas salas lado a lado, use a visão <b>Salas</b>. O sistema bloqueia automaticamente horários já ocupados.
       </div>`}
-    <div class="painel" style="overflow:hidden">${gradeAgenda(e.visao, de, ate, ats.filter(a => !e.sala || a.sala === e.sala), bloqueios)}</div>
+    <div class="painel agenda-rolagem" style="overflow:hidden">${gradeAgenda(e.visao, de, ate, ats.filter(a => !e.sala || a.sala === e.sala), bloqueios)}</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;color:var(--tinta-3);font-size:12.5px;align-items:center">
       ${Object.keys(ROTULO_STATUS).map(s => `<span class="chip-area">${tag(s)}</span>`).join('')}
       <span style="margin-left:auto;display:flex;gap:8px">
