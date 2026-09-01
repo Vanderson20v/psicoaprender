@@ -357,8 +357,14 @@ async function modalAtendimento(pre = {}) {
         const p = pacientes.find(x => x.id === Number(e.target.value));
         if (!p) return;
         if (p.profissional_id) f.querySelector('#at-prof').value = p.profissional_id;
-        if (p.horario) f.querySelector('#at-hora').value = p.horario;
-        if (p.sala) f.querySelector('#at-sala').value = p.sala;
+        /* Sugere o horário do próprio dia escolhido; se a criança não vem nesse
+           dia, cai no primeiro horário habitual dela. */
+        const diaEscolhido = new Date((f.querySelector('#at-data')?.value || '') + 'T12:00').getDay();
+        const lista = horariosDe(p);
+        const doDia = lista.find(x => Number(x.dia) === diaEscolhido) || lista[0];
+        if (doDia?.hora) f.querySelector('#at-hora').value = doDia.hora;
+        if (doDia?.sala) f.querySelector('#at-sala').value = doDia.sala;
+        else if (p.sala) f.querySelector('#at-sala').value = p.sala;
         desenharMapa();
       });
       desenharMapa();
@@ -497,7 +503,7 @@ App.paginas.pacientes = async (alvo, rota) => {
               <div class="td-secundario">${esc(p.responsaveis[0]?.nome || 'sem responsável')}</div></td>
           <td class="td-secundario">${idadeTexto(p.idade)}</td>
           <td class="td-secundario">${esc(p.profissional?.nome || '—')}</td>
-          <td class="td-secundario">${esc(p.frequencia || '—')}${p.dia_semana !== undefined && p.dia_semana !== '' ? ' · ' + DIAS_CURTO[p.dia_semana] + ' ' + (p.horario || '') : ''}</td>
+          <td class="td-secundario">${esc(p.frequencia || '—')}${resumoHorarios(p) ? ' · ' + esc(resumoHorarios(p)) : ''}</td>
           <td class="td-secundario">${p.proximo_atendimento ? dataBR(p.proximo_atendimento.data) + ' ' + p.proximo_atendimento.hora : '—'}</td>
           <td>${p.documentacao === 'completa' ? '<span class="tag simples t-pago">Completa</span>' : '<span class="tag simples t-pendente">Pendente</span>'}</td>
           <td>${p.financeiro ? `<span class="tag simples t-${p.financeiro.situacao === 'Em atraso' ? 'em_atraso' : p.financeiro.situacao === 'Pendente' ? 'pendente' : 'pago'}">${p.financeiro.situacao}</span>` : '—'}</td>
@@ -510,6 +516,24 @@ App.paginas.pacientes = async (alvo, rota) => {
   alvo.querySelectorAll('[data-status]').forEach(el => el.addEventListener('click', () => location.hash = '/pacientes?status=' + encodeURIComponent(el.dataset.status)));
   alvo.querySelector('#novo').addEventListener('click', () => modalPaciente());
 };
+
+/* Antes só existia um dia_semana + horario. Quem já estava cadastrado assim
+   continua valendo: viramos o par antigo numa lista de um item só. */
+function horariosDe(p) {
+  if (Array.isArray(p?.horarios) && p.horarios.length) return p.horarios;
+  if (p?.dia_semana !== undefined && p.dia_semana !== '' && p.dia_semana !== null) {
+    return [{ dia: Number(p.dia_semana), hora: p.horario || '', sala: p.sala || '' }];
+  }
+  return [];
+}
+
+/* Texto curto para listas e fichas: "Seg 14:00 · Qui 09:00" */
+function resumoHorarios(p) {
+  const h = horariosDe(p);
+  if (!h.length) return '';
+  return h.slice().sort((a, b) => a.dia - b.dia)
+    .map(x => DIAS_CURTO[x.dia] + (x.hora ? ' ' + x.hora : '')).join(' · ');
+}
 
 async function modalPaciente(paciente = null) {
   const profs = await api.get('/api/profissionais');
@@ -545,14 +569,22 @@ async function modalPaciente(paciente = null) {
       <fieldset><legend>Organização do atendimento</legend>
         <div class="linha-campos tres">
           ${campo('Profissional responsável', selecao('profissional_id', profs.map(x => [x.id, x.nome]), p.profissional_id || App.sessao.profissional_id))}
-          ${campo('Frequência', selecao('frequencia', ['Semanal', 'Quinzenal', 'Duas vezes por semana', 'Mensal', 'Sob demanda'], p.frequencia))}
-          ${campo('Dia da semana', selecao('dia_semana', [['', '—'], ...DIAS.map((d, i) => [i, d])], p.dia_semana))}
-        </div>
-        <div class="linha-campos tres">
-          ${campo('Horário', entrada('horario', p.horario, 'time'))}
-          ${campo('Sala habitual', selecao('sala', [['', '—'], ...SALAS.map(x => [x, x])], p.sala))}
+          ${campo('Frequência', selecao('frequencia', ['Semanal', 'Quinzenal', 'Duas vezes por semana', 'Três vezes por semana', 'Mensal', 'Sob demanda'], p.frequencia))}
           ${campo('Valor por sessão', entrada('valor_sessao', p.valor_sessao, 'number', 'step="0.01"'))}
         </div>
+        ${campo('Dias e horários habituais', `<div id="grade-dias" class="grade-dias">
+            ${DIAS.map((d, i) => {
+    const h = horariosDe(p).find(x => Number(x.dia) === i);
+    return `<div class="dia-linha${h ? ' ativo' : ''}" data-dia="${i}">
+                <button type="button" class="dia-botao">${DIAS_CURTO[i]}</button>
+                <input type="time" class="dia-hora" value="${h?.hora || ''}" ${h ? '' : 'disabled'}>
+                <select class="dia-sala" ${h ? '' : 'disabled'}>
+                  <option value="">Sala —</option>
+                  ${SALAS.map(x => `<option ${h?.sala === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}
+                </select>
+              </div>`;
+  }).join('')}
+          </div>`, 'Toque nos dias em que a criança vem. Duas vezes por semana? Marque os dois.')}
         <div class="linha-campos tres">
           ${campo('Forma de pagamento', selecao('forma_pagamento', ['PIX', 'Dinheiro', 'Cartão', 'Transferência', 'Outros'], p.forma_pagamento))}
           ${campo('Dia de vencimento', entrada('dia_vencimento', p.dia_vencimento || 10, 'number', 'min="1" max="28"'))}
@@ -578,6 +610,27 @@ async function modalPaciente(paciente = null) {
       <button class="btn" data-fechar>Cancelar</button><button class="btn btn-primario" id="salvar">${paciente ? 'Salvar alterações' : 'Cadastrar paciente'}</button>`,
     aoAbrir: (f) => {
       let n = resp.length;
+
+      /* Marcar o dia habilita hora e sala daquela linha. Desmarcar limpa,
+         para não sobrar horário fantasma de um dia que a criança não vem mais. */
+      f.querySelectorAll('#grade-dias .dia-linha').forEach(linha => {
+        linha.querySelector('.dia-botao').addEventListener('click', () => {
+          const ligado = linha.classList.toggle('ativo');
+          const hora = linha.querySelector('.dia-hora');
+          const sala = linha.querySelector('.dia-sala');
+          hora.disabled = sala.disabled = !ligado;
+          if (!ligado) { hora.value = ''; sala.value = ''; return; }
+          // repete o horário do primeiro dia já marcado: quase sempre é o mesmo
+          const modelo = f.querySelector('#grade-dias .dia-linha.ativo .dia-hora[value]:not([value=""])')
+            || [...f.querySelectorAll('#grade-dias .dia-linha.ativo .dia-hora')].find(i => i.value && i !== hora);
+          if (modelo && !hora.value) {
+            hora.value = modelo.value;
+            const salaModelo = modelo.closest('.dia-linha').querySelector('.dia-sala');
+            if (salaModelo) sala.value = salaModelo.value;
+          }
+          hora.focus();
+        });
+      });
 
       /* Excluir é definitivo e leva junto agenda, diários, anamnese e financeiro
          da criança. Só administrador vê, e o nome tem de ser digitado à mão para
@@ -625,8 +678,23 @@ async function modalPaciente(paciente = null) {
         });
         Object.keys(d).forEach(k => { if (k.startsWith('resp_')) delete d[k]; });
         d.responsaveis = responsaveis;
-        if (d.dia_semana !== '') d.dia_semana = Number(d.dia_semana);
+        d.horarios = [...f.querySelectorAll('#grade-dias .dia-linha.ativo')].map(linha => ({
+          dia: Number(linha.dataset.dia),
+          hora: linha.querySelector('.dia-hora').value,
+          sala: linha.querySelector('.dia-sala').value
+        })).sort((a, b) => a.dia - b.dia);
+        /* Espelha o primeiro horário nos campos antigos para que a agenda, os
+           relatórios e as fichas já salvas continuem funcionando sem conversão. */
+        const primeiro = d.horarios[0];
+        d.dia_semana = primeiro ? primeiro.dia : '';
+        d.horario = primeiro ? primeiro.hora : '';
+        d.sala = primeiro ? primeiro.sala : '';
         d.valor_sessao = Number(d.valor_sessao) || 0;
+        /* Só avisa; não impede de salvar. A combinação pode estar em transição. */
+        const esperado = { 'Semanal': 1, 'Duas vezes por semana': 2, 'Três vezes por semana': 3 }[d.frequencia];
+        if (esperado && d.horarios.length && d.horarios.length !== esperado) {
+          aviso(`Atenção: a frequência diz "${d.frequencia}" mas ${d.horarios.length} dia(s) foram marcados.`, 'atencao');
+        }
         try {
           const salvo = paciente ? await api.put('/api/pacientes/' + paciente.id, d) : await api.post('/api/pacientes', d);
           fecharModal(true); aviso('Paciente salvo.');
@@ -1029,7 +1097,7 @@ async function abaResumo(cont, p) {
       <section class="painel"><div class="painel-titulo"><h2>Acompanhamento</h2></div>
         <div class="painel-corpo" style="display:grid;gap:9px;font-size:13.5px">
           ${linhaInfo('Profissional', p.profissional?.nome)}
-          ${linhaInfo('Frequência', `${p.frequencia || '—'}${p.dia_semana !== '' && p.dia_semana !== undefined ? ' · ' + DIAS[p.dia_semana] + ' ' + (p.horario || '') : ''}`)}
+          ${linhaInfo('Frequência', `${p.frequencia || '—'}${resumoHorarios(p) ? ' · ' + esc(resumoHorarios(p)) : ''}`)}
           ${linhaInfo('Sala habitual', p.sala)}
           ${linhaInfo('Início', dataBR(p.inicio_acompanhamento))}
           ${linhaInfo('Sessões realizadas', p.total_atendimentos)}

@@ -568,3 +568,24 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   .ctx-destaque { margin: 0; }
 }
 .proximo-combinado { margin-top: 10px; font-size: 13px; line-height: 1.5; background: rgba(255,255,255,.14); border-radius: 6px; padding: 8px 11px; max-width: 620px; }
+
+/* ---- Dias e horários habituais no cadastro do paciente ---- */
+.grade-dias { display: flex; flex-direction: column; gap: 6px; }
+.dia-linha { display: grid; grid-template-columns: 76px 130px 1fr; gap: 8px; align-items: center; }
+.dia-botao {
+  height: 40px; border: 1px solid var(--linha); background: var(--superficie);
+  border-radius: var(--raio); font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--tinta-3); cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.dia-botao:hover { border-color: var(--roxo); color: var(--roxo); }
+.dia-linha.ativo .dia-botao { background: var(--roxo); border-color: var(--roxo); color: #fff; }
+.dia-linha .dia-hora, .dia-linha .dia-sala { height: 40px; }
+.dia-linha .dia-hora:disabled, .dia-linha .dia-sala:disabled {
+  background: var(--superficie-2); color: var(--tinta-3); opacity: .55; cursor: not-allowed;
+}
+@media (max-width: 720px) {
+  .dia-linha { grid-template-columns: 68px 1fr; grid-template-areas: "dia hora" "dia sala"; gap: 6px; }
+  .dia-linha .dia-botao { grid-area: dia; height: 100%; min-height: 44px; }
+  .dia-linha .dia-hora { grid-area: hora; height: 44px; }
+  .dia-linha .dia-sala { grid-area: sala; height: 44px; }
+}

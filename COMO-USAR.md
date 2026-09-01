@@ -55,6 +55,11 @@ sessão e a profissional responsável.
 O **responsável** é cadastrado dentro da ficha da criança, porque é lá que existe
 o vínculo. A tela "Responsáveis" só reúne todos os contatos num lugar só.
 
+Em **Organização do atendimento**, escolha a frequência e toque nos **dias da semana**
+em que a criança vem. Se ela vem duas vezes por semana, marque os dois dias — cada um
+com seu horário e sua sala, porque nem sempre são iguais. O segundo dia já vem com o
+horário do primeiro preenchido; é só corrigir se for diferente.
+
 ### Passo 2 — Marcar o primeiro horário
 
 **Agenda → Atendimento.** Escolha criança, dia, hora e sala.
