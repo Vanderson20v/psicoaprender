@@ -573,9 +573,43 @@ async function modalPaciente(paciente = null) {
         ${campo('Profissionais externos envolvidos', entrada('profissionais_externos', p.profissionais_externos))}
       </fieldset>` : ''}
     </form>`,
-    rodape: `<button class="btn" data-fechar>Cancelar</button><button class="btn btn-primario" id="salvar">${paciente ? 'Salvar alterações' : 'Cadastrar paciente'}</button>`,
+    rodape: `${paciente && App.sessao.papel === 'admin'
+      ? `<button class="btn btn-perigo" id="excluir-paciente" style="margin-right:auto">${ico('lixeira')} Excluir</button>` : ''}
+      <button class="btn" data-fechar>Cancelar</button><button class="btn btn-primario" id="salvar">${paciente ? 'Salvar alterações' : 'Cadastrar paciente'}</button>`,
     aoAbrir: (f) => {
       let n = resp.length;
+
+      /* Excluir é definitivo e leva junto agenda, diários, anamnese e financeiro
+         da criança. Só administrador vê, e o nome tem de ser digitado à mão para
+         que ninguém apague uma ficha real por engano. */
+      f.querySelector('#excluir-paciente')?.addEventListener('click', () => {
+        abrirModal({
+          titulo: 'Excluir paciente',
+          corpo: `<div class="aviso erro"><strong>Esta ação não pode ser desfeita.</strong>
+              Serão apagados também os horários, registros de sessão, anamnese,
+              documentos, relatórios e lançamentos financeiros de ${esc(p.nome)}.</div>
+            <div class="ajuda" style="margin-bottom:6px">Para confirmar, digite o nome da criança:</div>
+            ${entrada('confirmacao', '', 'text', 'id="conf-nome" placeholder="' + esc(p.nome) + '" autocomplete="off"')}`,
+          rodape: `<button class="btn" data-fechar>Cancelar</button>
+            <button class="btn btn-perigo" id="conf-excluir">Excluir definitivamente</button>`,
+          aoAbrir: (g) => {
+            const campoNome = g.querySelector('#conf-nome');
+            campoNome.focus();
+            g.querySelector('#conf-excluir').addEventListener('click', async () => {
+              if (campoNome.value.trim().toLowerCase() !== (p.nome || '').trim().toLowerCase()) {
+                return aviso('O nome digitado não confere.', 'erro');
+              }
+              try {
+                await api.del('/api/pacientes/' + p.id);
+                fecharModal(true); fecharModal(true);
+                aviso('Paciente excluído.');
+                if (location.hash.includes('/paciente/')) location.hash = '#/pacientes';
+                else navegar();
+              } catch (e) { erroAviso(e); }
+            });
+          }
+        });
+      });
       f.querySelector('#add-resp').addEventListener('click', () => {
         f.querySelector('#lista-resp').insertAdjacentHTML('beforeend', blocoResponsavel({}, n++));
       });

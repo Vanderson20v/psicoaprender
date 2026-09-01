@@ -213,6 +213,13 @@ campo de texto é obrigatório — marcar as áreas já registra a sessão.
 **Posso corrigir depois?**
 Sim, tudo é editável. Alterações ficam registradas nos logs de acesso.
 
+**Como excluo uma criança cadastrada por engano?**
+Abra a ficha → **Editar** → botão **Excluir**, no canto esquerdo. Só a
+administradora vê esse botão, e é preciso digitar o nome da criança para confirmar,
+porque a exclusão apaga junto agenda, diários, anamnese, documentos e financeiro
+e não pode ser desfeita. Para uma criança que apenas encerrou o acompanhamento,
+o certo não é excluir: mude o **status para Inativo** e o histórico fica preservado.
+
 **Como o sistema decide o que sugerir?**
 Ele não sugere. Tudo que aparece na tela foi escrito por alguém da equipe. O
 "combinado da última vez" é o que você mesma anotou; os avisos de área esquecida

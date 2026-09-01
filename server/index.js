@@ -217,6 +217,7 @@ app.get('/api/pacientes', (req, res) => {
 
 app.get('/api/pacientes/:id', (req, res) => {
   const p = db.pacientes.byId(req.params.id);
+  if (!p) return res.status(404).json({ erro: 'Paciente não encontrado.' });
   if (!A.podeVerPaciente(req.usuario, p)) return res.status(403).json({ erro: 'Sem acesso a este paciente.' });
   A.registrarLog(req, 'consulta', 'pacientes', p.id, p.nome);
   res.json(enriquecerPaciente(p, req.perm));
