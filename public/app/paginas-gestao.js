@@ -529,7 +529,13 @@ App.paginas.profissionais = async (alvo) => {
               <span class="tag simples ${p.status === 'Ativo' ? 't-pago' : 't-neutro'}">${esc(p.status || '')}</span>
               <span class="tag simples t-neutro">${p.pacientes} pacientes</span>
               ${p.usuario ? `<span class="tag simples t-neutro">Acesso: ${({ admin: 'Administrador', profissional: 'Profissional', administrativo: 'Administrativo' })[p.usuario.papel]}</span>` : '<span class="tag simples t-pendente">Sem acesso ao sistema</span>'}
+              ${App.sessao.papel !== 'administrativo'
+                ? `<span class="tag simples ${p.ficha_preenchida ? 't-pago' : 't-pendente'}">Ficha ${p.ficha_preenchida ? 'preenchida' : 'pendente'}</span>` : ''}
             </div>
+            ${App.sessao.papel !== 'administrativo' ? `<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-sutil" data-ficha="${p.id}">
+                ${p.ficha_preenchida ? 'Ver ficha cadastral' : 'Preencher ficha cadastral'}</button>
+            </div>` : ''}
           </div>
           ${podeEditar ? `<button class="btn btn-sutil btn-icone" data-editar="${p.id}">${ico('editar')}</button>` : ''}
         </div></section>`).join('')}
@@ -541,7 +547,99 @@ App.paginas.profissionais = async (alvo) => {
   alvo.querySelector('#novo')?.addEventListener('click', () => modalProfissional());
   alvo.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () =>
     modalProfissional(profs.find(p => p.id === Number(b.dataset.editar)))));
+  alvo.querySelectorAll('[data-ficha]').forEach(b => b.addEventListener('click', () =>
+    fichaProfissional(profs.find(p => p.id === Number(b.dataset.ficha)))));
 };
+
+/**
+ * Ficha cadastral da profissional — espelha o formulário em papel da PsicoAprender.
+ * Visível apenas para a equipe clínica; cada uma edita a própria ficha
+ * (a administradora pode editar as demais).
+ */
+function fichaProfissional(p) {
+  if (!p) return;
+  const souEu = App.sessao.profissional_id === p.id;
+  const podeEditar = souEu || App.sessao.papel === 'admin';
+  const v = (c) => p[c] || '';
+
+  abrirModal({
+    titulo: 'Ficha cadastral — ' + p.nome,
+    largo: true,
+    corpo: `<form id="form-ficha">
+      ${!podeEditar ? '<div class="aviso info" style="margin-bottom:14px">Somente leitura: apenas a própria profissional ou a administradora podem alterar esta ficha.</div>' : ''}
+      <div class="aviso info" style="margin-bottom:16px">
+        Estes dados ficam visíveis apenas para a equipe (administradora e profissionais).
+        O perfil administrativo e o site público não têm acesso.
+      </div>
+
+      <fieldset><legend>Dados pessoais</legend>
+        <div class="linha-campos">
+          ${campo('Data de nascimento', entrada('nascimento', v('nascimento'), 'date'))}
+          ${campo('Sexo', selecao('sexo', [['', '—'], 'Feminino', 'Masculino', 'Prefiro não informar'], v('sexo')))}
+        </div>
+        ${campo('Endereço', entrada('endereco', v('endereco')))}
+        <div class="linha-campos">
+          ${campo('CPF', entrada('cpf', v('cpf')))}
+          ${campo('Telefone', entrada('telefone_pessoal', v('telefone_pessoal'), 'tel'))}
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Formação</legend>
+        <div class="linha-campos">
+          ${campo('1ª graduação', entrada('graduacao_1', v('graduacao_1')))}
+          ${campo('Instituição', entrada('instituicao_1', v('instituicao_1')))}
+        </div>
+        <div class="linha-campos">
+          ${campo('2ª graduação', entrada('graduacao_2', v('graduacao_2')))}
+          ${campo('Instituição', entrada('instituicao_2', v('instituicao_2')))}
+        </div>
+        ${campo('Especialização', entrada('especializacao_1', v('especializacao_1')))}
+        ${campo('Especialização', entrada('especializacao_2', v('especializacao_2')))}
+        ${campo('Especialização', entrada('especializacao_3', v('especializacao_3')))}
+      </fieldset>
+
+      <fieldset><legend>Contato de emergência</legend>
+        ${campo('Nome', entrada('emergencia_nome', v('emergencia_nome')))}
+        <div class="linha-campos">
+          ${campo('Telefone', entrada('emergencia_telefone', v('emergencia_telefone'), 'tel'))}
+          ${campo('Parentesco', entrada('emergencia_parentesco', v('emergencia_parentesco')))}
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Áreas de atuação</legend>
+        ${campo('Áreas de atuação', area('areas_atuacao', v('areas_atuacao'), 2))}
+        ${campo('Idades atendidas', entrada('idades_atendidas', v('idades_atendidas')), 'Ex.: 3 a 12 anos')}
+        ${campo('Possui maior domínio, experiência ou conhecimento em alguma área específica? Quais?', area('dominio_especifico', v('dominio_especifico'), 2))}
+      </fieldset>
+
+      <fieldset><legend>Disponibilidade</legend>
+        ${campo('Dias e turnos', area('disponibilidade', v('disponibilidade'), 2), 'Ex.: segunda e quarta, manhã; terça, tarde')}
+        ${campo('Atendimentos no espaço ou domiciliar?', selecao('local_atendimento', [['', '—'], 'No espaço', 'Domiciliar', 'No espaço e domiciliar'], v('local_atendimento')))}
+      </fieldset>
+
+      ${podeEditar ? `<label style="display:flex;gap:9px;align-items:flex-start;margin-top:6px">
+        <input type="checkbox" id="assino" style="width:18px;min-height:18px;margin-top:3px" ${v('ficha_assinada_em') ? 'checked' : ''}>
+        <span class="td-secundario">Declaro que as informações acima são verdadeiras.${v('ficha_assinada_em') ? `<br><b>Assinada em ${new Date(p.ficha_assinada_em).toLocaleDateString('pt-BR')}</b>` : ''}</span>
+      </label>` : ''}
+    </form>`,
+    rodape: podeEditar
+      ? `<button class="btn" data-fechar>Cancelar</button><button class="btn btn-primario" id="salvar-ficha">Salvar ficha</button>`
+      : `<button class="btn" data-fechar>Fechar</button>`,
+    aoAbrir: (f) => {
+      if (!podeEditar) f.querySelectorAll('#form-ficha input, #form-ficha select, #form-ficha textarea')
+        .forEach(el => { el.disabled = true; });
+      f.querySelector('#salvar-ficha')?.addEventListener('click', async () => {
+        const dados = dadosFormulario(f.querySelector('#form-ficha'));
+        dados.ficha_assinada_em = f.querySelector('#assino')?.checked
+          ? (p.ficha_assinada_em || new Date().toISOString()) : '';
+        try {
+          await api.put(`/api/profissionais/${p.id}/ficha`, dados);
+          fecharModal(true); aviso('Ficha cadastral salva.'); navegar();
+        } catch (e) { erroAviso(e); }
+      });
+    }
+  });
+}
 
 function modalProfissional(p = null) {
   const d = p || {};
@@ -693,7 +791,24 @@ App.paginas.configuracoes = async (alvo, rota) => {
           <p class="td-secundario" style="margin:0 0 12px">Gera uma cópia completa do banco na pasta segura do servidor. Último backup: ${backups[0] ? esc(backups[0].replace('backup-', '').slice(0, 10)) : 'nenhum'}.</p>
           <button class="btn" id="backup">Gerar backup agora</button>
           <a class="btn btn-sutil" href="${comToken('/api/exportar')}" download>Exportar dados (JSON)</a>
+          <div class="aviso info" style="margin-top:12px">
+            <b>Antes de cada atualização do sistema</b>, exporte os dados. Depois que a nova versão
+            estiver no ar, use “Restaurar” abaixo para trazer tudo de volta.
+          </div>
+          <div style="margin-top:12px">
+            <input type="file" id="arquivo-restauro" accept=".json,application/json" style="display:none">
+            <button class="btn" id="restaurar">Restaurar de um arquivo exportado</button>
+          </div>
         </div></div>
+        <div class="painel"><div class="painel-corpo">
+          <h3 style="font-size:14px;margin-bottom:6px">Limpar dados de pacientes</h3>
+          <p class="td-secundario" style="margin:0 0 12px">Apaga <b>todos</b> os pacientes, responsáveis, atendimentos,
+            diários, documentos, relatórios e lançamentos financeiros. A equipe, os modelos de registro e as
+            configurações são mantidos. Um backup é gerado automaticamente antes.</p>
+          <button class="btn btn-perigo" id="limpar">Apagar dados de pacientes</button>
+        </div></div>
+      </div>
+      <div class="grade g-2" style="margin-bottom:18px">
         <div class="painel"><div class="painel-corpo">
           <h3 style="font-size:14px;margin-bottom:6px">Proteção de dados (LGPD)</h3>
           <ul class="td-secundario" style="margin:0;padding-left:18px;line-height:1.7">
@@ -717,6 +832,56 @@ App.paginas.configuracoes = async (alvo, rota) => {
       </div></div>`;
     c.querySelector('#backup').addEventListener('click', async () => {
       const r = await api.post('/api/backup'); aviso('Backup criado: ' + r.arquivo);
+    });
+
+    const entradaArquivo = c.querySelector('#arquivo-restauro');
+    c.querySelector('#restaurar')?.addEventListener('click', () => entradaArquivo.click());
+    entradaArquivo?.addEventListener('change', async () => {
+      const arquivo = entradaArquivo.files[0];
+      if (!arquivo) return;
+      let dados;
+      try { dados = JSON.parse(await arquivo.text()); }
+      catch { entradaArquivo.value = ''; return aviso('Arquivo inválido: não é um JSON legível.', 'erro'); }
+
+      const nomes = (dados.pacientes || []).length;
+      confirmar(`Restaurar ${nomes} paciente(s) e todos os registros ligados a eles? ` +
+        'Os dados atuais de pacientes serão substituídos (um backup é gerado antes).', async () => {
+        try {
+          const r = await api.post('/api/importar', { dados });
+          const total = Object.values(r.restaurados).reduce((a, b) => a + b, 0);
+          aviso(`${total} registro(s) restaurados.`); navegar();
+        } catch (e) { erroAviso(e); }
+        entradaArquivo.value = '';
+      }, 'Restaurar');
+    });
+
+    c.querySelector('#limpar')?.addEventListener('click', () => {
+      abrirModal({
+        titulo: 'Apagar dados de pacientes',
+        corpo: `<div class="aviso erro" style="margin-bottom:14px">
+            Esta ação não pode ser desfeita pela interface. Serão apagados todos os pacientes,
+            responsáveis, atendimentos, diários, documentos, relatórios e lançamentos financeiros.
+          </div>
+          <p class="td-secundario">A equipe, os modelos de registro e as configurações permanecem.
+            Um backup do estado atual é gravado no servidor antes da limpeza.</p>
+          ${campo('Para confirmar, digite APAGAR em letras maiúsculas', entrada('confirmacao', '', 'text', 'id="conf" autocomplete="off"'))}`,
+        rodape: `<button class="btn" data-fechar>Cancelar</button>
+                 <button class="btn btn-perigo" id="ok" disabled>Apagar definitivamente</button>`,
+        aoAbrir: (f) => {
+          const campoConf = f.querySelector('#conf'), botao = f.querySelector('#ok');
+          campoConf.addEventListener('input', () => { botao.disabled = campoConf.value !== 'APAGAR'; });
+          botao.addEventListener('click', async () => {
+            botao.disabled = true; botao.textContent = 'Apagando…';
+            try {
+              const r = await api.post('/api/limpar-dados', { confirmacao: 'APAGAR' });
+              const total = Object.values(r.apagados).reduce((a, b) => a + b, 0);
+              fecharModal(true);
+              aviso(`${total} registro(s) apagados. Backup salvo: ${r.backup}`);
+              navegar();
+            } catch (e) { erroAviso(e); botao.disabled = false; botao.textContent = 'Apagar definitivamente'; }
+          });
+        }
+      });
     });
   }
 };

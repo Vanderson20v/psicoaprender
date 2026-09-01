@@ -631,12 +631,51 @@ app.get('/api/relatorios/base/:paciente_id', A.exigir('clinico'), (req, res) => 
 
 /* ============================ PROFISSIONAIS E USUÁRIOS ============================ */
 
+/* Campos da ficha cadastral: dados pessoais e de contato da própria profissional.
+   Ficam visíveis apenas para a equipe clínica (admin e profissionais);
+   o perfil administrativo recebe a versão sem esses dados. */
+const CAMPOS_FICHA = ['nascimento', 'sexo', 'endereco', 'cpf', 'telefone_pessoal',
+  'graduacao_1', 'instituicao_1', 'graduacao_2', 'instituicao_2',
+  'especializacao_1', 'especializacao_2', 'especializacao_3',
+  'emergencia_nome', 'emergencia_telefone', 'emergencia_parentesco',
+  'areas_atuacao', 'idades_atendidas', 'dominio_especifico',
+  'disponibilidade', 'local_atendimento', 'ficha_assinada_em'];
+
+const semFicha = (p) => {
+  const copia = { ...p };
+  for (const c of CAMPOS_FICHA) delete copia[c];
+  return copia;
+};
+
 app.get('/api/profissionais', (req, res) => {
-  res.json(db.profissionais.all().map(p => ({
-    ...p,
-    usuario: db.usuarios.findOne({ profissional_id: p.id }) ? { papel: db.usuarios.findOne({ profissional_id: p.id }).papel, email: db.usuarios.findOne({ profissional_id: p.id }).email } : null,
-    pacientes: db.pacientes.find({ profissional_id: p.id }).length
-  })));
+  const clinico = req.usuario && req.usuario.papel !== 'administrativo';
+  res.json(db.profissionais.all().map(p => {
+    const u = db.usuarios.findOne({ profissional_id: p.id });
+    const base = clinico ? p : semFicha(p);
+    return {
+      ...base,
+      ficha_preenchida: !!(p.cpf || p.graduacao_1 || p.areas_atuacao),
+      usuario: u ? { papel: u.papel, email: u.email } : null,
+      pacientes: db.pacientes.find({ profissional_id: p.id }).length
+    };
+  }));
+});
+
+/** Cada profissional edita a própria ficha; a administradora edita qualquer uma. */
+app.put('/api/profissionais/:id/ficha', A.exigirLogin, (req, res) => {
+  const id = Number(req.params.id);
+  const eu = req.usuario;
+  if (eu.papel === 'administrativo') return res.status(403).json({ erro: 'Sem permissão para a ficha cadastral.' });
+  if (eu.papel !== 'admin' && eu.profissional_id !== id) {
+    return res.status(403).json({ erro: 'Você só pode preencher a sua própria ficha.' });
+  }
+  const dados = {};
+  for (const c of CAMPOS_FICHA) if (c in (req.body || {})) dados[c] = req.body[c];
+  dados.ficha_atualizada_em = new Date().toISOString();
+  const p = db.profissionais.update(id, dados);
+  if (!p) return res.status(404).json({ erro: 'Profissional não encontrada.' });
+  A.registrarLog(req, 'alteracao', 'profissionais', id, 'ficha cadastral');
+  res.json(p);
 });
 app.post('/api/profissionais', A.exigir('profissionais'), (req, res) => {
   const { criar_usuario, senha, papel, ...dados } = req.body || {};
@@ -803,6 +842,62 @@ app.post('/api/backup', A.exigir('configuracoes'), (req, res) => {
   const nome = db.backup(); A.registrarLog(req, 'backup', 'sistema', null, nome); res.json({ ok: true, arquivo: nome, lista: db.backups() });
 });
 app.get('/api/backup', A.exigir('configuracoes'), (req, res) => res.json(db.backups()));
+
+/**
+ * Apaga todos os registros de pacientes (e tudo que depende deles).
+ * Preserva equipe, usuários, modelos de registro, configurações e auditoria.
+ * Só a administradora pode executar, e um backup é gerado antes.
+ */
+/**
+ * Restaura um arquivo exportado (Configurações → Exportar dados).
+ * Necessário no plano gratuito da hospedagem, onde cada publicação recria o banco:
+ * a administradora exporta antes e restaura depois, sem perder os cadastros.
+ */
+app.post('/api/importar', A.exigirLogin, (req, res) => {
+  if (req.usuario.papel !== 'admin') return res.status(403).json({ erro: 'Apenas a administradora pode restaurar dados.' });
+  const dados = req.body?.dados;
+  if (!dados || typeof dados !== 'object' || !Array.isArray(dados.pacientes)) {
+    return res.status(400).json({ erro: 'Arquivo inválido: não parece uma exportação do PsicoAprender.' });
+  }
+
+  const backup = db.backup();
+  const colecoes = ['pacientes', 'responsaveis', 'atendimentos', 'bloqueios', 'registros',
+    'templates', 'pagamentos', 'faltas', 'documentos', 'relatorios', 'notificacoes'];
+  const restaurados = {};
+  for (const nome of colecoes) {
+    if (!Array.isArray(dados[nome])) continue;
+    db[nome].removeWhere({});
+    for (const registro of dados[nome]) db[nome].inserirBruto(registro);
+    restaurados[nome] = dados[nome].length;
+  }
+  if (dados.config && typeof dados.config === 'object') db.config.set(dados.config);
+  if (dados._seq) db.definirSequencias(dados._seq);
+
+  db.persistNow();
+  A.registrarLog(req, 'importacao', 'sistema', null,
+    `restauração de dados (backup anterior ${backup}) — ` +
+    Object.entries(restaurados).map(([k, n]) => `${k}: ${n}`).join(', '));
+  res.json({ ok: true, backup, restaurados });
+});
+
+app.post('/api/limpar-dados', A.exigirLogin, (req, res) => {
+  if (req.usuario.papel !== 'admin') return res.status(403).json({ erro: 'Apenas a administradora pode limpar os dados.' });
+  if (req.body?.confirmacao !== 'APAGAR') return res.status(400).json({ erro: 'Confirmação inválida.' });
+
+  const backup = db.backup();
+  const colecoes = ['pacientes', 'responsaveis', 'atendimentos', 'bloqueios', 'registros',
+    'pagamentos', 'faltas', 'documentos', 'relatorios', 'notificacoes'];
+  const apagados = {};
+  for (const nome of colecoes) {
+    apagados[nome] = db[nome].all().length;
+    db[nome].removeWhere({});
+  }
+  db.persistNow();
+  A.registrarLog(req, 'limpeza', 'sistema', null,
+    `dados de pacientes apagados (backup ${backup}) — ` +
+    Object.entries(apagados).filter(([, n]) => n).map(([k, n]) => `${k}: ${n}`).join(', '));
+  res.json({ ok: true, backup, apagados });
+});
 
 app.get('/api/exportar', A.exigir('configuracoes'), (req, res) => {
   A.registrarLog(req, 'exportacao', 'sistema', null, 'exportação completa (LGPD)');

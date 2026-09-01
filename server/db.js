@@ -109,6 +109,16 @@ const table = (name) => ({
     persist();
     return true;
   },
+  /** Insere preservando o id original (usado na restauração de um backup). */
+  inserirBruto(registro) {
+    if (!registro || typeof registro !== 'object') return null;
+    const row = { ...registro, id: Number(registro.id) };
+    state[name].push(row);
+    if (!state._seq) state._seq = {};
+    if (row.id > (state._seq[name] || 0)) state._seq[name] = row.id;
+    persist();
+    return row;
+  },
   removeWhere(where) {
     const before = state[name].length;
     state[name] = state[name].filter(r => !matches(r, where));
@@ -122,6 +132,14 @@ const db = {
   load,
   persist,
   persistNow,
+  /** Reposiciona os contadores de id após uma restauração. */
+  definirSequencias(seq) {
+    state._seq = state._seq || {};
+    for (const [k, v] of Object.entries(seq || {})) {
+      if (Number(v) > (state._seq[k] || 0)) state._seq[k] = Number(v);
+    }
+    persist();
+  },
   paths: { DATA_DIR, DB_FILE, UPLOAD_DIR, BACKUP_DIR },
   config: {
     get: () => state.config,
