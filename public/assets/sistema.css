@@ -530,3 +530,20 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 /* Horário ocupado por outra profissional: presente na agenda, mas discreto e sem clique. */
 .evento.evento-reservado { opacity: .62; cursor: default; background: repeating-linear-gradient(135deg, var(--superficie-2), var(--superficie-2) 6px, var(--papel) 6px, var(--papel) 12px); }
 .evento.evento-reservado .p-nome { font-style: italic; color: var(--tinta-3); }
+
+/* Anamnese: plano de trabalho por área */
+.linha-area-plano { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid var(--linha); border-radius: 7px; background: var(--superficie-2); }
+.linha-area-plano.marcada { border-color: var(--roxo); background: var(--roxo-claro); }
+.linha-area-plano .alternar-area { min-width: 40px; font-weight: 600; }
+.linha-area-plano input[disabled] { background: transparent; border-color: transparent; color: var(--tinta-3); }
+.escolhas-anamnese .escolha { border-radius: 7px; }
+.btn-atencao { border-color: var(--amarelo); color: var(--tinta); font-weight: 600; }
+@media (max-width: 720px) {
+  .linha-area-plano { flex-wrap: wrap; }
+  .linha-area-plano input { flex: 1 1 100%; }
+}
+.marca-plano { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; background: var(--roxo-claro); color: var(--roxo-escuro); border-radius: 4px; padding: 2px 5px; margin-left: 5px; font-weight: 600; }
+
+/* Editor do roteiro da anamnese */
+.pergunta-roteiro { display: grid; grid-template-columns: 1fr 170px 1fr 44px; gap: 8px; align-items: center; }
+@media (max-width: 900px) { .pergunta-roteiro { grid-template-columns: 1fr; } }

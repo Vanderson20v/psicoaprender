@@ -6,7 +6,7 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db');
-const { seed, AREAS } = require('./seed');
+const { seed, AREAS, ROTEIRO_ANAMNESE } = require('./seed');
 const A = require('./auth');
 
 const app = express();
@@ -202,7 +202,9 @@ function enriquecerPaciente(p, perm) {
     total_atendimentos: ats.filter(a => a.status === 'realizado').length,
     documentacao, financeiro: resumoFinanceiroPaciente(p.id)
   };
-  if (!perm?.clinico) { delete out.queixa; delete out.objetivo; delete out.observacoes_iniciais; delete out.encaminhamento; }
+  const anam = db.anamneses.findOne({ paciente_id: p.id });
+  out.anamnese = anam ? { id: anam.id, data: anam.data, concluida: !!anam.concluida } : null;
+  if (!perm?.clinico) { delete out.queixa; delete out.objetivo; delete out.observacoes_iniciais; delete out.encaminhamento; delete out.anamnese; }
   return out;
 }
 
@@ -247,7 +249,7 @@ app.delete('/api/pacientes/:id', (req, res) => {
   const p = db.pacientes.byId(req.params.id);
   if (!p) return res.status(404).json({ erro: 'Não encontrado.' });
   db.pacientes.remove(p.id);
-  ['responsaveis', 'atendimentos', 'registros', 'pagamentos', 'documentos', 'relatorios', 'faltas']
+  ['responsaveis', 'atendimentos', 'registros', 'pagamentos', 'documentos', 'relatorios', 'faltas', 'anamneses']
     .forEach(c => db[c].removeWhere({ paciente_id: p.id }));
   A.registrarLog(req, 'exclusao', 'pacientes', p.id, p.nome);
   res.json({ ok: true });
@@ -479,17 +481,30 @@ app.get('/api/evolucao/:paciente_id', A.exigir('clinico'), (req, res) => {
   regs.sort((a, b) => b.data.localeCompare(a.data));
 
   const ordem = { nao_trabalhado: 0, em_desenvolvimento: 1, evoluindo: 2, consolidado: 3 };
+
+  /* Áreas eleitas como prioridade no plano de trabalho da anamnese: a evolução
+     destaca justamente o que foi combinado com a família. */
+  const anamnese = db.anamneses.findOne({ paciente_id: p.id });
+  const prioridades = new Map((anamnese?.plano?.areas || []).map(a => [a.area, a.objetivo || '']));
+
   const indicadores = AREAS.map(area => {
     const serie = regs.filter(r => r.areas?.[area] && r.areas[area] !== 'nao_trabalhado')
       .map(r => ({ data: r.data, nivel: r.areas[area] }));
-    if (!serie.length) return { area, sessoes: 0, atual: null, anterior: null, tendencia: 'sem_registro' };
+    const prioridade = prioridades.has(area);
+    const objetivo = prioridades.get(area) || '';
+    if (!serie.length) return { area, sessoes: 0, atual: null, anterior: null, tendencia: 'sem_registro', prioridade, objetivo };
     const atual = serie[0].nivel;
     const anterior = serie[serie.length - 1].nivel;
     const dif = ordem[atual] - ordem[anterior];
-    return { area, sessoes: serie.length, atual, anterior, tendencia: dif > 0 ? 'avanco' : dif < 0 ? 'queda' : 'estavel' };
+    return { area, sessoes: serie.length, atual, anterior, tendencia: dif > 0 ? 'avanco' : dif < 0 ? 'queda' : 'estavel', prioridade, objetivo };
   });
 
-  res.json({ paciente: enriquecerPaciente(p, req.perm), linha_do_tempo: regs, indicadores });
+  res.json({
+    paciente: enriquecerPaciente(p, req.perm),
+    linha_do_tempo: regs,
+    indicadores,
+    plano: anamnese ? { ...anamnese.plano, anamnese_id: anamnese.id, data: anamnese.data } : null
+  });
 });
 
 /* ============================ FINANCEIRO ============================ */
@@ -569,6 +584,124 @@ app.get('/api/financeiro/resumo', A.exigir('financeiro'), (req, res) => {
     total_atendimentos: atendimentosMes.filter(a => a.status === 'realizado').length,
     por_profissional: porProfissional, serie_mensal: meses
   });
+});
+
+/* ============================ ANAMNESE ============================ */
+/* Primeiro encontro com a família. O sistema guarda as respostas e o plano de
+   trabalho definido PELA PROFISSIONAL — não interpreta, não sugere hipótese e
+   não conclui diagnóstico, que não é atribuição da psicopedagogia. */
+
+const roteiroAnamnese = () => db.config.get().roteiro_anamnese || [];
+
+function enriquecerAnamnese(a) {
+  const p = db.pacientes.byId(a.paciente_id);
+  return {
+    ...a,
+    paciente: p ? { id: p.id, nome: p.nome, nascimento: p.nascimento } : null,
+    profissional: db.profissionais.byId(a.profissional_id)
+  };
+}
+
+app.get('/api/anamneses', A.exigir('clinico'), (req, res) => {
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  let l = db.anamneses.all().filter(a => visiveis.has(a.paciente_id));
+  if (req.query.paciente_id) l = l.filter(a => a.paciente_id === Number(req.query.paciente_id));
+  res.json(l.sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(enriquecerAnamnese));
+});
+
+app.get('/api/anamneses/:id', A.exigir('clinico'), (req, res) => {
+  const a = db.anamneses.byId(req.params.id);
+  if (!a) return res.status(404).json({ erro: 'Anamnese não encontrada.' });
+  if (!A.podeVerPaciente(req.usuario, db.pacientes.byId(a.paciente_id))) {
+    return res.status(403).json({ erro: 'Esta anamnese é de um paciente que não está sob seu acompanhamento.' });
+  }
+  res.json(enriquecerAnamnese(a));
+});
+
+app.post('/api/anamneses', A.exigir('clinico'), (req, res) => {
+  const d = req.body || {};
+  const paciente = db.pacientes.byId(d.paciente_id);
+  if (!paciente) return res.status(404).json({ erro: 'Paciente não encontrado. Cadastre o paciente antes da anamnese.' });
+  if (!A.podeVerPaciente(req.usuario, paciente)) {
+    return res.status(403).json({ erro: 'Este paciente não está sob seu acompanhamento.' });
+  }
+  if (db.anamneses.find({ paciente_id: paciente.id }).length) {
+    return res.status(409).json({ erro: 'Este paciente já tem uma anamnese registrada. Abra a existente para complementar.' });
+  }
+  const a = db.anamneses.insert({
+    paciente_id: paciente.id,
+    profissional_id: Number(d.profissional_id) || req.usuario.profissional_id || paciente.profissional_id,
+    atendimento_id: d.atendimento_id ? Number(d.atendimento_id) : null,
+    data: d.data || hojeISO(),
+    informante: d.informante || '',
+    respostas: d.respostas || {},
+    hipoteses: d.hipoteses || '',
+    encaminhamento: d.encaminhamento || '',
+    plano: {
+      areas: Array.isArray(d.plano?.areas) ? d.plano.areas : [],
+      frequencia: d.plano?.frequencia || '',
+      objetivo_geral: d.plano?.objetivo_geral || ''
+    },
+    concluida: !!d.concluida,
+    criado_por: req.usuario.nome
+  });
+  /* A queixa dita pela família alimenta a ficha, para não digitar duas vezes. */
+  const queixa = (d.respostas || {}).queixa_principal;
+  if (queixa && !paciente.queixa) db.pacientes.update(paciente.id, { queixa });
+
+  A.registrarLog(req, 'criacao', 'anamneses', a.id, paciente.nome);
+  res.status(201).json(enriquecerAnamnese(a));
+});
+
+app.put('/api/anamneses/:id', A.exigir('clinico'), (req, res) => {
+  const atual = db.anamneses.byId(req.params.id);
+  if (!atual) return res.status(404).json({ erro: 'Anamnese não encontrada.' });
+  if (!A.podeVerPaciente(req.usuario, db.pacientes.byId(atual.paciente_id))) {
+    return res.status(403).json({ erro: 'Esta anamnese é de um paciente que não está sob seu acompanhamento.' });
+  }
+  const d = req.body || {};
+  const a = db.anamneses.update(atual.id, {
+    ...d,
+    respostas: { ...(atual.respostas || {}), ...(d.respostas || {}) },
+    plano: d.plano ? { ...(atual.plano || {}), ...d.plano } : atual.plano
+  });
+  A.registrarLog(req, 'alteracao', 'anamneses', a.id);
+  res.json(enriquecerAnamnese(a));
+});
+
+app.delete('/api/anamneses/:id', A.exigir('clinico'), (req, res) => {
+  const a = db.anamneses.byId(req.params.id);
+  if (!a) return res.status(404).json({ erro: 'Anamnese não encontrada.' });
+  if (!A.podeVerPaciente(req.usuario, db.pacientes.byId(a.paciente_id))) {
+    return res.status(403).json({ erro: 'Esta anamnese é de um paciente que não está sob seu acompanhamento.' });
+  }
+  db.anamneses.remove(a.id);
+  A.registrarLog(req, 'exclusao', 'anamneses', Number(req.params.id));
+  res.json({ ok: true });
+});
+
+/* Roteiro: leitura para qualquer profissional, edição só para administrador. */
+app.get('/api/anamnese/roteiro', (req, res) => res.json(roteiroAnamnese()));
+app.get('/api/anamnese/roteiro/padrao', A.exigir('configuracoes'), (req, res) => res.json(ROTEIRO_ANAMNESE));
+
+app.put('/api/anamnese/roteiro', A.exigir('configuracoes'), (req, res) => {
+  const blocos = req.body?.blocos;
+  if (!Array.isArray(blocos) || !blocos.length) {
+    return res.status(400).json({ erro: 'Envie ao menos um bloco de perguntas.' });
+  }
+  const limpo = blocos.map((b, i) => ({
+    id: b.id || `bloco_${i + 1}`,
+    titulo: String(b.titulo || '').trim() || `Bloco ${i + 1}`,
+    perguntas: (Array.isArray(b.perguntas) ? b.perguntas : []).map((q, j) => ({
+      id: q.id || `pergunta_${i + 1}_${j + 1}`,
+      rotulo: String(q.rotulo || '').trim() || `Pergunta ${j + 1}`,
+      tipo: ['texto', 'selecao', 'sim_nao'].includes(q.tipo) ? q.tipo : 'texto',
+      opcoes: Array.isArray(q.opcoes) ? q.opcoes.filter(Boolean).map(String) : []
+    }))
+  }));
+  db.config.set({ ...db.config.get(), roteiro_anamnese: limpo });
+  A.registrarLog(req, 'alteracao', 'config', 1, 'roteiro da anamnese');
+  res.json(limpo);
 });
 
 /* ============================ FALTAS ============================ */
@@ -844,6 +977,17 @@ function calcularAlertas(req) {
     if (ultimo && ultimo < addDias(hoje, -30)) {
       alertas.push({ tipo: 'ausencia', prioridade: 'media', titulo: `${p.nome.split(' ')[0]} sem atendimento há mais de 30 dias`, detalhe: `Último atendimento em ${ultimo.split('-').reverse().join('/')}`, link: `#/paciente/${p.id}` });
     }
+    /* Sem anamnese não há plano de trabalho combinado: é a pendência mais
+       importante de um paciente que já começou a ser atendido. */
+    if (req.perm.clinico && !db.anamneses.findOne({ paciente_id: p.id })) {
+      const jaAtendido = db.atendimentos.find({ paciente_id: p.id }).some(a => a.status === 'realizado');
+      alertas.push({
+        tipo: 'anamnese', prioridade: jaAtendido ? 'alta' : 'media',
+        titulo: `Anamnese pendente — ${p.nome.split(' ')[0]}`,
+        detalhe: jaAtendido ? 'O paciente já foi atendido e ainda não tem anamnese registrada.' : 'Registrar no primeiro encontro com a família.',
+        link: `#/paciente/${p.id}?aba=anamnese`
+      });
+    }
     const docs = db.documentos.find({ paciente_id: p.id });
     const faltando = ['Termo de consentimento', 'Contrato'].filter(c => !docs.some(d => d.categoria === c));
     if (faltando.length) alertas.push({ tipo: 'documento', prioridade: 'baixa', titulo: `Documentação pendente — ${p.nome.split(' ')[0]}`, detalhe: faltando.join(' · '), link: `#/paciente/${p.id}?aba=documentos` });
@@ -913,7 +1057,7 @@ app.post('/api/importar', A.exigirLogin, (req, res) => {
 
   const backup = db.backup();
   const colecoes = ['pacientes', 'responsaveis', 'atendimentos', 'bloqueios', 'registros',
-    'templates', 'pagamentos', 'faltas', 'documentos', 'relatorios', 'notificacoes'];
+    'templates', 'pagamentos', 'faltas', 'documentos', 'relatorios', 'notificacoes', 'anamneses'];
   const restaurados = {};
   for (const nome of colecoes) {
     if (!Array.isArray(dados[nome])) continue;
@@ -937,7 +1081,7 @@ app.post('/api/limpar-dados', A.exigirLogin, (req, res) => {
 
   const backup = db.backup();
   const colecoes = ['pacientes', 'responsaveis', 'atendimentos', 'bloqueios', 'registros',
-    'pagamentos', 'faltas', 'documentos', 'relatorios', 'notificacoes'];
+    'pagamentos', 'faltas', 'documentos', 'relatorios', 'notificacoes', 'anamneses'];
   const apagados = {};
   for (const nome of colecoes) {
     apagados[nome] = db[nome].all().length;

@@ -603,14 +603,259 @@ const blocoResponsavel = (r, i) => `
     </div>
   </div>`;
 
+
+/* ============================ ANAMNESE ============================ */
+/* Primeiro encontro com a família. Preenchida no tablet, durante a conversa:
+   a maior parte das perguntas se responde com um toque. O que a profissional
+   conclui (hipóteses, plano, encaminhamento) fica em campos separados das
+   respostas da família — o sistema não mistura uma coisa com a outra. */
+
+async function abaAnamnese(cont, p) {
+  const [roteiro, existentes] = await Promise.all([
+    api.get('/api/anamnese/roteiro'),
+    api.get('/api/anamneses', { paciente_id: p.id })
+  ]);
+  const a = existentes[0] || null;
+
+  if (!a) {
+    cont.innerHTML = `<div class="painel"><div class="painel-corpo">
+      <div class="vazio-estado" style="padding:34px 20px">
+        <div style="font-size:15px;color:var(--tinta-2);margin-bottom:6px">Anamnese ainda não registrada</div>
+        <div style="max-width:460px;margin:0 auto 18px">É o primeiro encontro com a família:
+          histórico, rotina, escola e o que motivou a procura. A partir dela você define
+          o plano de trabalho que vai orientar os atendimentos.</div>
+        <button class="btn btn-primario btn-grande" id="iniciar">${ico('diario')} Iniciar anamnese</button>
+      </div></div></div>`;
+    cont.querySelector('#iniciar').addEventListener('click', async () => {
+      const nova = await api.post('/api/anamneses', { paciente_id: p.id, respostas: {} });
+      aviso('Anamnese iniciada. Vá preenchendo — dá para salvar e continuar depois.');
+      renderAnamnese(cont, p, roteiro, nova);
+    });
+    return;
+  }
+  renderAnamnese(cont, p, roteiro, a);
+}
+
+function renderAnamnese(cont, p, roteiro, a) {
+  const r = a.respostas || {};
+  const plano = a.plano || { areas: [], frequencia: '', objetivo_geral: '' };
+  const areasPlano = new Map((plano.areas || []).map(x => [x.area, x.objetivo || '']));
+
+  const campoPergunta = (q) => {
+    const v = r[q.id] || '';
+    if (q.tipo === 'selecao') {
+      return `<div class="escolhas escolhas-anamnese" data-pergunta="${q.id}">
+        ${(q.opcoes || []).map(o => `<div class="escolha ${v === o ? 'ativa' : ''}" data-valor="${esc(o)}">${esc(o)}</div>`).join('')}
+      </div>`;
+    }
+    if (q.tipo === 'sim_nao') {
+      return `<div class="escolhas escolhas-anamnese" data-pergunta="${q.id}">
+        ${['Sim', 'Não', 'Não sabe informar'].map(o => `<div class="escolha ${v === o ? 'ativa' : ''}" data-valor="${o}">${o}</div>`).join('')}
+      </div>`;
+    }
+    return `<textarea rows="2" data-texto="${q.id}" placeholder="Opcional">${esc(v)}</textarea>`;
+  };
+
+  cont.innerHTML = `<div style="display:grid;gap:16px">
+    <div class="aviso info">Registre o que a família relatou. Conclusões e plano ficam nos campos do fim da página.
+      ${a.concluida ? '' : ' Esta anamnese ainda está <b>em preenchimento</b>.'}</div>
+
+    <section class="painel">
+      <div class="painel-titulo"><h2>Dados do encontro</h2></div>
+      <div class="painel-corpo">
+        <div class="grade g-2">
+          ${campo('Data', `<input type="date" data-campo="data" value="${a.data || hojeISO()}">`)}
+          ${campo('Quem informou', `<input type="text" data-campo="informante" value="${esc(a.informante || '')}" placeholder="Mãe, pai, avó…">`)}
+        </div>
+      </div>
+    </section>
+
+    ${roteiro.map(b => `<section class="painel">
+      <div class="painel-titulo"><h2>${esc(b.titulo)}</h2></div>
+      <div class="painel-corpo" style="display:grid;gap:16px">
+        ${b.perguntas.map(q => `<div class="campo"><label>${esc(q.rotulo)}</label>${campoPergunta(q)}</div>`).join('')}
+      </div></section>`).join('')}
+
+    <section class="painel">
+      <div class="painel-titulo"><h2>Conclusões da profissional</h2></div>
+      <div class="painel-corpo" style="display:grid;gap:16px">
+        <div class="aviso" style="background:var(--roxo-claro);border-color:var(--roxo)">
+          Psicopedagogia não fecha diagnóstico de transtorno. Registre hipóteses de trabalho
+          e, se for o caso, indique o encaminhamento para avaliação com outro profissional.
+        </div>
+        <div class="campo"><label>Hipóteses de trabalho</label>
+          <textarea rows="3" data-campo="hipoteses" placeholder="O que os relatos e a observação sugerem para o trabalho">${esc(a.hipoteses || '')}</textarea></div>
+        <div class="campo"><label>Encaminhamento sugerido</label>
+          <textarea rows="2" data-campo="encaminhamento" placeholder="Ex.: avaliação fonoaudiológica, neuropediatra, oftalmologista">${esc(a.encaminhamento || '')}</textarea></div>
+      </div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-titulo"><h2>Plano de trabalho</h2></div>
+      <div class="painel-corpo" style="display:grid;gap:16px">
+        <div class="grade g-2">
+          ${campo('Objetivo geral', `<input type="text" data-campo="objetivo_geral" value="${esc(plano.objetivo_geral || '')}" placeholder="O que se pretende alcançar">`)}
+          ${campo('Frequência combinada', `<select data-campo="frequencia">
+            ${['', '1x por semana', '2x por semana', 'Quinzenal', 'A definir'].map(f =>
+              `<option ${plano.frequencia === f ? 'selected' : ''}>${f}</option>`).join('')}
+          </select>`)}
+        </div>
+        <div class="campo"><label>Áreas que serão prioridade</label>
+          <div class="td-secundario" style="margin-bottom:8px">São as mesmas áreas do diário. As escolhidas aqui
+            aparecem em destaque na Evolução, para acompanhar o que foi combinado.</div>
+          <div style="display:grid;gap:8px">
+            ${AREAS.map(([chave, rotulo]) => {
+              const marcada = areasPlano.has(chave);
+              return `<div class="linha-area-plano ${marcada ? 'marcada' : ''}" data-area="${chave}">
+                <button type="button" class="btn btn-sutil alternar-area" data-area="${chave}">${marcada ? '✓' : '+'}</button>
+                <span style="min-width:150px;font-weight:${marcada ? '600' : '400'}">${rotulo}</span>
+                <input type="text" data-objetivo="${chave}" value="${esc(areasPlano.get(chave) || '')}"
+                  placeholder="Objetivo nesta área" ${marcada ? '' : 'disabled'} style="flex:1">
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-bottom:20px">
+      <button class="btn" id="imprimir-anamnese">${ico('imprimir')} Exportar em PDF</button>
+      <button class="btn" id="salvar-anamnese">Salvar</button>
+      <button class="btn btn-primario btn-grande" id="concluir-anamnese">
+        ${a.concluida ? 'Salvar alterações' : 'Salvar e concluir'}</button>
+    </div>
+  </div>`;
+
+  // ---- seleção por toque
+  cont.querySelectorAll('.escolhas-anamnese').forEach(g => {
+    g.addEventListener('click', (e) => {
+      const op = e.target.closest('.escolha');
+      if (!op) return;
+      const jaAtiva = op.classList.contains('ativa');
+      g.querySelectorAll('.escolha').forEach(x => x.classList.remove('ativa'));
+      if (!jaAtiva) op.classList.add('ativa');   // tocar de novo desmarca
+      marcarPendente();
+    });
+  });
+  cont.querySelectorAll('textarea, input, select').forEach(c => c.addEventListener('input', marcarPendente));
+
+  // ---- áreas do plano
+  cont.querySelectorAll('.alternar-area').forEach(b => b.addEventListener('click', () => {
+    const linha = cont.querySelector(`.linha-area-plano[data-area="${b.dataset.area}"]`);
+    const campoObj = linha.querySelector('input');
+    const marcada = linha.classList.toggle('marcada');
+    b.textContent = marcada ? '✓' : '+';
+    linha.querySelector('span').style.fontWeight = marcada ? '600' : '400';
+    campoObj.disabled = !marcada;
+    if (marcada) campoObj.focus(); else campoObj.value = '';
+    marcarPendente();
+  }));
+
+  let pendente = false;
+  function marcarPendente() {
+    pendente = true;
+    const b = cont.querySelector('#salvar-anamnese');
+    if (b) { b.textContent = 'Salvar alterações pendentes'; b.classList.add('btn-atencao'); }
+  }
+
+  function coletar() {
+    const respostas = {};
+    cont.querySelectorAll('.escolhas-anamnese').forEach(g => {
+      const ativa = g.querySelector('.escolha.ativa');
+      respostas[g.dataset.pergunta] = ativa ? ativa.dataset.valor : '';
+    });
+    cont.querySelectorAll('[data-texto]').forEach(t => { respostas[t.dataset.texto] = t.value.trim(); });
+    const val = (n) => cont.querySelector(`[data-campo="${n}"]`)?.value?.trim() || '';
+    const areas = [...cont.querySelectorAll('.linha-area-plano.marcada')].map(l => ({
+      area: l.dataset.area,
+      objetivo: l.querySelector('input').value.trim()
+    }));
+    return {
+      data: val('data') || hojeISO(),
+      informante: val('informante'),
+      respostas,
+      hipoteses: val('hipoteses'),
+      encaminhamento: val('encaminhamento'),
+      plano: { objetivo_geral: val('objetivo_geral'), frequencia: val('frequencia'), areas }
+    };
+  }
+
+  async function salvar(concluir) {
+    const dados = coletar();
+    if (concluir && !dados.plano.areas.length) {
+      aviso('Escolha ao menos uma área para o plano de trabalho antes de concluir.');
+      return;
+    }
+    const salva = await api.put('/api/anamneses/' + a.id, { ...dados, concluida: concluir || a.concluida });
+    pendente = false;
+    aviso(concluir ? 'Anamnese concluída.' : 'Anamnese salva.');
+    renderAnamnese(cont, p, roteiro, salva);
+  }
+
+  cont.querySelector('#salvar-anamnese').addEventListener('click', () => salvar(false));
+  cont.querySelector('#concluir-anamnese').addEventListener('click', () => salvar(true));
+  cont.querySelector('#imprimir-anamnese').addEventListener('click', () => imprimirAnamnese(p, roteiro, coletar(), a));
+
+  /* Aviso antes de sair com alterações não salvas, como no resto do sistema. */
+  window.addEventListener('beforeunload', (e) => {
+    if (pendente) { e.preventDefault(); e.returnValue = ''; }
+  });
+}
+
+/* Documento para a família ou para a escola, no mesmo padrão dos relatórios. */
+function imprimirAnamnese(p, roteiro, d, a) {
+  const linha = (rot, val) => val ? `<div style="margin-bottom:9px"><b>${esc(rot)}:</b> ${esc(val)}</div>` : '';
+  const corpo = `
+    <div style="text-align:center;margin-bottom:22px">
+      <img src="/assets/logo.png" style="width:120px"><h2 style="margin:8px 0 2px">Anamnese</h2>
+      <div style="color:#666;font-size:13px">${esc(App.config.clinica || 'PsicoAprender')}</div>
+    </div>
+    ${linha('Paciente', p.nome)}
+    ${linha('Nascimento', dataBR(p.nascimento))}
+    ${linha('Data do encontro', dataBR(d.data))}
+    ${linha('Informante', d.informante)}
+    ${linha('Profissional', a.profissional?.nome || App.sessao.nome)}
+    <hr style="margin:16px 0">
+    ${roteiro.map(b => {
+      const itens = b.perguntas.filter(q => d.respostas[q.id]);
+      if (!itens.length) return '';
+      return `<h3 style="margin:16px 0 8px;font-size:14px">${esc(b.titulo)}</h3>
+        ${itens.map(q => linha(q.rotulo, d.respostas[q.id])).join('')}`;
+    }).join('')}
+    ${d.hipoteses ? `<h3 style="margin:16px 0 8px;font-size:14px">Hipóteses de trabalho</h3><div>${esc(d.hipoteses)}</div>` : ''}
+    ${d.encaminhamento ? `<h3 style="margin:16px 0 8px;font-size:14px">Encaminhamento sugerido</h3><div>${esc(d.encaminhamento)}</div>` : ''}
+    <h3 style="margin:16px 0 8px;font-size:14px">Plano de trabalho</h3>
+    ${linha('Objetivo geral', d.plano.objetivo_geral)}
+    ${linha('Frequência', d.plano.frequencia)}
+    ${d.plano.areas.length ? `<ul>${d.plano.areas.map(x =>
+      `<li><b>${esc((AREAS.find(A2 => A2[0] === x.area) || [, x.area])[1])}</b>${x.objetivo ? ' — ' + esc(x.objetivo) : ''}</li>`).join('')}</ul>` : ''}
+    <div style="margin-top:46px;text-align:center">
+      <div style="border-top:1px solid #333;width:290px;margin:0 auto;padding-top:6px">
+        ${esc(a.profissional?.nome || App.sessao.nome)}${a.profissional?.registro ? ' — ' + esc(a.profissional.registro) : ''}
+      </div>
+    </div>
+    <div style="margin-top:26px;font-size:11px;color:#777;text-align:center">
+      Documento gerado a partir do relato dos responsáveis e da observação em sessão.
+      Não constitui diagnóstico. ${esc(App.config.endereco || '')}
+    </div>`;
+  abrirModal({
+    titulo: 'Anamnese — ' + p.nome,
+    largo: true,
+    corpo: `<div class="documento">${corpo}</div>`,
+    rodape: `<button class="btn" data-fechar>Fechar</button>
+      <button class="btn btn-primario" id="imprimir">${ico('imprimir')} Exportar em PDF</button>`,
+    aoAbrir: (f) => f.querySelector('#imprimir').addEventListener('click', () => window.print())
+  });
+}
+
 /* ============================ PERFIL DO PACIENTE ============================ */
 App.paginas.paciente = async (alvo, rota) => {
   const id = rota.param;
   const p = await api.get('/api/pacientes/' + id);
   const aba = rota.query.aba || 'resumo';
-  const abas = [['resumo', 'Resumo'], ['agenda', 'Agenda'], ['diario', 'Diário de atendimentos'],
+  const abas = [['resumo', 'Resumo'], ['anamnese', 'Anamnese'], ['agenda', 'Agenda'], ['diario', 'Diário de atendimentos'],
   ['evolucao', 'Evolução'], ['documentos', 'Documentos'], ['financeiro', 'Financeiro']]
-    .filter(a => (['diario', 'evolucao'].includes(a[0]) ? App.permissoes.clinico : true))
+    .filter(a => (['diario', 'evolucao', 'anamnese'].includes(a[0]) ? App.permissoes.clinico : true))
     .filter(a => (a[0] === 'financeiro' ? App.permissoes.financeiro : true));
 
   alvo.innerHTML = `<div class="pagina">
@@ -624,6 +869,7 @@ App.paginas.paciente = async (alvo, rota) => {
           <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="tag simples t-neutro">${esc(p.status)}</span>
             ${p.documentacao === 'completa' ? '<span class="tag simples t-pago">Documentação completa</span>' : '<span class="tag simples t-pendente">Documentação pendente</span>'}
+            ${App.permissoes.clinico ? (p.anamnese ? '<span class="tag simples t-pago">Anamnese registrada</span>' : '<span class="tag simples t-pendente">Anamnese pendente</span>') : ''}
             ${p.financeiro && App.permissoes.financeiro ? `<span class="tag simples t-${p.financeiro.situacao === 'Em atraso' ? 'em_atraso' : p.financeiro.situacao === 'Pendente' ? 'pendente' : 'pago'}">Financeiro: ${p.financeiro.situacao}</span>` : ''}
           </div>
         </div>
@@ -647,7 +893,7 @@ App.paginas.paciente = async (alvo, rota) => {
   alvo.querySelector('#registrar')?.addEventListener('click', () => abrirDiario({ paciente_id: p.id }));
 
   const cont = alvo.querySelector('#conteudo-aba');
-  ({ resumo: abaResumo, agenda: abaAgenda, diario: abaDiario, evolucao: abaEvolucao, documentos: abaDocumentos, financeiro: abaFinanceiro }[aba] || abaResumo)(cont, p);
+  ({ resumo: abaResumo, anamnese: abaAnamnese, agenda: abaAgenda, diario: abaDiario, evolucao: abaEvolucao, documentos: abaDocumentos, financeiro: abaFinanceiro }[aba] || abaResumo)(cont, p);
 };
 
 async function abaResumo(cont, p) {
@@ -769,7 +1015,29 @@ async function abaEvolucao(cont, p) {
 
 function conteudoEvolucao(dados, periodo) {
   const comRegistro = dados.indicadores.filter(i => i.sessoes > 0);
+  const plano = dados.plano;
+  /* Áreas combinadas na anamnese que ainda não apareceram em nenhum diário:
+     é a informação mais útil aqui — o que foi prometido e ainda não foi trabalhado. */
+  const prioridadesSemRegistro = dados.indicadores.filter(i => i.prioridade && !i.sessoes);
   return `
+  ${plano ? `<div class="painel" style="margin-bottom:16px">
+    <div class="painel-titulo"><h2>Plano definido na anamnese</h2>
+      <div class="acoes"><span class="td-secundario">${dataBR(plano.data)}</span></div></div>
+    <div class="painel-corpo">
+      ${plano.objetivo_geral ? `<div style="margin-bottom:8px"><b>Objetivo geral:</b> ${esc(plano.objetivo_geral)}</div>` : ''}
+      ${plano.frequencia ? `<div class="td-secundario" style="margin-bottom:10px">Frequência combinada: ${esc(plano.frequencia)}</div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${(plano.areas || []).map(a => {
+          const ind = dados.indicadores.find(i => i.area === a.area) || {};
+          const nome = (AREAS.find(x => x[0] === a.area) || [, a.area])[1];
+          return `<span class="tag simples ${ind.sessoes ? 't-pago' : 't-pendente'}" title="${esc(a.objetivo || '')}">${nome}${ind.sessoes ? '' : ' · sem registro'}</span>`;
+        }).join('')}
+      </div>
+      ${prioridadesSemRegistro.length ? `<div class="aviso" style="margin-top:12px">
+        ${prioridadesSemRegistro.length === 1 ? 'Uma área do plano ainda não' : prioridadesSemRegistro.length + ' áreas do plano ainda não'}
+        ${prioridadesSemRegistro.length === 1 ? 'apareceu' : 'apareceram'} nos diários do período.</div>` : ''}
+    </div>
+  </div>` : ''}
   <div class="painel" style="margin-bottom:16px">
     <div class="painel-titulo"><h2>Período analisado</h2>
       <div class="acoes">
@@ -810,7 +1078,7 @@ function conteudoEvolucao(dados, periodo) {
       const pct = { nao_trabalhado: 10, em_desenvolvimento: 40, evoluindo: 70, consolidado: 100 }[i.atual];
       return `<li style="flex-direction:column;gap:6px">
             <div style="display:flex;width:100%;gap:8px;align-items:center">
-              <span class="td-principal">${nome}</span>
+              <span class="td-principal">${nome}${i.prioridade ? ' <span class="marca-plano" title="Área prioritária definida na anamnese">plano</span>' : ''}</span>
               <span class="td-secundario">${i.sessoes} sessões</span>
               <span style="margin-left:auto" class="tag simples ${i.tendencia === 'avanco' ? 't-pago' : i.tendencia === 'queda' ? 't-em_atraso' : 't-neutro'}">${nivelRotulo(i.atual)}</span>
             </div>

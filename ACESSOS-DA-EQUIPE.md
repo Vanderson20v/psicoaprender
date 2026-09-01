@@ -92,3 +92,33 @@ Dentro do sistema: clique no seu nome (canto superior direito) → **Alterar sen
 | Agenda — nome da criança no horário da colega | **não** ("Reservado") | vê | vê |
 
 A ideia: ninguém marca em cima de ninguém, e ninguém precisa saber quem a colega atende.
+
+---
+
+## Novidade de 01/09/2026: anamnese
+
+O primeiro encontro com a família agora tem tela própria, na aba **Anamnese** de cada paciente.
+
+- Roteiro em 8 blocos: motivo da procura, gestação, desenvolvimento, saúde, escola,
+  rotina, família e observação da criança na sessão
+- 39 perguntas, 22 respondidas com um toque — feito para preencher no tablet durante a conversa
+- Dá para salvar pela metade e continuar depois
+- Ao final, a profissional define o **plano de trabalho**: quais das 11 áreas serão
+  prioridade e qual o objetivo em cada uma
+- Esse plano aparece na **Evolução**, avisando quando uma área combinada ainda não
+  apareceu em nenhum diário
+- Gera **PDF** para a família ou para a escola
+- Paciente sem anamnese aparece nos alertas
+
+**A clínica edita o roteiro sozinha:** Configurações → Anamnese. Dá para renomear blocos,
+acrescentar e remover perguntas, mudar as opções de resposta e restaurar o padrão.
+Alterar o roteiro não apaga anamneses já registradas.
+
+**Uma escolha proposital:** o sistema não sugere nem conclui diagnóstico. A anamnese
+registra o que a família relatou e o que a profissional observou; as conclusões ficam
+em "hipóteses de trabalho" e há um campo de "encaminhamento sugerido" para quando o caso
+pedir avaliação médica ou de outra especialidade. Diagnóstico de transtorno é ato médico
+ou de psicólogo — o PDF traz essa ressalva no rodapé.
+
+**Pergunta para as profissionais:** o roteiro está parecido com o que vocês já usam?
+O que falta, o que sobra, e algum campo devia mudar de nome?

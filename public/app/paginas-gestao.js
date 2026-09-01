@@ -698,7 +698,7 @@ App.paginas.configuracoes = async (alvo, rota) => {
   alvo.innerHTML = `<div class="pagina">
     ${cabecalho('Configurações', 'Dados da clínica, acessos, mensagens e segurança')}
     <div class="painel">
-      <div class="abas">${[['clinica', 'Clínica'], ['mensagens', 'Mensagens'], ['usuarios', 'Usuários e acessos'], ['seguranca', 'Segurança e LGPD']]
+      <div class="abas">${[['clinica', 'Clínica'], ['anamnese', 'Anamnese'], ['mensagens', 'Mensagens'], ['usuarios', 'Usuários e acessos'], ['seguranca', 'Segurança e LGPD']]
       .filter(a => admin || a[0] === 'clinica').map(a => `<button class="${aba === a[0] ? 'ativa' : ''}" data-aba="${a[0]}">${a[1]}</button>`).join('')}</div>
       <div class="painel-corpo" id="conf"></div>
     </div></div>`;
@@ -732,6 +732,104 @@ App.paginas.configuracoes = async (alvo, rota) => {
       App.config = salvo;
       aviso('Configurações salvas.');
     });
+  }
+
+  if (aba === 'anamnese') {
+    /* Roteiro editável: a clínica ajusta o que pergunta na entrevista sem
+       depender de alteração no sistema. */
+    let blocos = JSON.parse(JSON.stringify(await api.get('/api/anamnese/roteiro')));
+
+    const desenhar = () => {
+      c.innerHTML = `<div class="aviso info">Este é o roteiro que aparece na aba <b>Anamnese</b> de cada paciente.
+        Perguntas de seleção são respondidas com um toque — melhor para preencher no tablet durante a conversa.
+        Alterar o roteiro não apaga anamneses já registradas.</div>
+        <div id="blocos" style="display:grid;gap:14px;max-width:820px"></div>
+        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn" id="add-bloco">${ico('mais')} Novo bloco</button>
+          <button class="btn" id="restaurar">Restaurar roteiro padrão</button>
+          <button class="btn btn-primario" id="salvar-roteiro" style="margin-left:auto">Salvar roteiro</button>
+        </div>`;
+
+      const cont = c.querySelector('#blocos');
+      cont.innerHTML = blocos.map((b, i) => `
+        <section class="painel" data-bloco="${i}">
+          <div class="painel-titulo">
+            <input type="text" value="${esc(b.titulo)}" data-titulo="${i}" style="font-weight:600;max-width:420px">
+            <div class="acoes">
+              <button class="btn btn-sutil" data-subir="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+              <button class="btn btn-sutil" data-descer="${i}" ${i === blocos.length - 1 ? 'disabled' : ''}>↓</button>
+              <button class="btn btn-sutil" data-remove-bloco="${i}">${ico('lixeira')}</button>
+            </div>
+          </div>
+          <div class="painel-corpo" style="display:grid;gap:10px">
+            ${b.perguntas.map((q, j) => `
+              <div class="pergunta-roteiro">
+                <input type="text" value="${esc(q.rotulo)}" data-rotulo="${i}.${j}" placeholder="Texto da pergunta">
+                <select data-tipo="${i}.${j}">
+                  ${[['texto', 'Resposta escrita'], ['selecao', 'Escolher uma opção'], ['sim_nao', 'Sim / Não']]
+                    .map(t => `<option value="${t[0]}" ${q.tipo === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}
+                </select>
+                <input type="text" value="${esc((q.opcoes || []).join(', '))}" data-opcoes="${i}.${j}"
+                  placeholder="Opções separadas por vírgula" ${q.tipo === 'selecao' ? '' : 'disabled'}>
+                <button class="btn btn-sutil" data-remove-pergunta="${i}.${j}">${ico('lixeira')}</button>
+              </div>`).join('')}
+            <button class="btn btn-sutil" data-add-pergunta="${i}" style="justify-self:start">+ Pergunta</button>
+          </div>
+        </section>`).join('');
+
+      const ler = () => {
+        c.querySelectorAll('[data-titulo]').forEach(e => { blocos[+e.dataset.titulo].titulo = e.value; });
+        c.querySelectorAll('[data-rotulo]').forEach(e => {
+          const [i, j] = e.dataset.rotulo.split('.').map(Number);
+          blocos[i].perguntas[j].rotulo = e.value;
+        });
+        c.querySelectorAll('[data-tipo]').forEach(e => {
+          const [i, j] = e.dataset.tipo.split('.').map(Number);
+          blocos[i].perguntas[j].tipo = e.value;
+        });
+        c.querySelectorAll('[data-opcoes]').forEach(e => {
+          const [i, j] = e.dataset.opcoes.split('.').map(Number);
+          blocos[i].perguntas[j].opcoes = e.value.split(',').map(x => x.trim()).filter(Boolean);
+        });
+      };
+
+      c.querySelectorAll('[data-tipo]').forEach(e => e.addEventListener('change', () => { ler(); desenhar(); }));
+      c.querySelectorAll('[data-remove-bloco]').forEach(b => b.addEventListener('click', () => {
+        ler(); blocos.splice(+b.dataset.removeBloco, 1); desenhar();
+      }));
+      c.querySelectorAll('[data-subir]').forEach(b => b.addEventListener('click', () => {
+        ler(); const i = +b.dataset.subir; [blocos[i - 1], blocos[i]] = [blocos[i], blocos[i - 1]]; desenhar();
+      }));
+      c.querySelectorAll('[data-descer]').forEach(b => b.addEventListener('click', () => {
+        ler(); const i = +b.dataset.descer; [blocos[i + 1], blocos[i]] = [blocos[i], blocos[i + 1]]; desenhar();
+      }));
+      c.querySelectorAll('[data-remove-pergunta]').forEach(b => b.addEventListener('click', () => {
+        ler(); const [i, j] = b.dataset.removePergunta.split('.').map(Number);
+        blocos[i].perguntas.splice(j, 1); desenhar();
+      }));
+      c.querySelectorAll('[data-add-pergunta]').forEach(b => b.addEventListener('click', () => {
+        ler(); blocos[+b.dataset.addPergunta].perguntas.push({ id: 'p' + Date.now(), rotulo: '', tipo: 'texto', opcoes: [] });
+        desenhar();
+      }));
+      c.querySelector('#add-bloco').addEventListener('click', () => {
+        ler(); blocos.push({ id: 'b' + Date.now(), titulo: 'Novo bloco', perguntas: [] }); desenhar();
+      });
+      c.querySelector('#restaurar').addEventListener('click', () => {
+        confirmar('Restaurar o roteiro padrão? As perguntas que você criou serão perdidas.', async () => {
+          blocos = await api.get('/api/anamnese/roteiro/padrao');
+          desenhar();
+          aviso('Roteiro padrão carregado. Clique em Salvar para confirmar.');
+        }, 'Restaurar');
+      });
+      c.querySelector('#salvar-roteiro').addEventListener('click', async () => {
+        ler();
+        const semTexto = blocos.some(b => b.perguntas.some(q => !q.rotulo.trim()));
+        if (semTexto) return aviso('Há pergunta sem texto. Preencha ou remova antes de salvar.');
+        await api.put('/api/anamnese/roteiro', { blocos });
+        aviso('Roteiro salvo.');
+      });
+    };
+    desenhar();
   }
 
   if (aba === 'mensagens') {

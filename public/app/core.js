@@ -133,7 +133,13 @@ function aviso(msg, tipo = '') {
   const el = document.createElement('div');
   el.className = 'toast ' + tipo;
   el.textContent = msg;
-  document.getElementById('toasts').appendChild(el);
+  let caixa = document.getElementById('toasts');
+  if (!caixa) {           // telas fora do layout (login, troca de senha)
+    caixa = document.createElement('div');
+    caixa.id = 'toasts';
+    document.body.appendChild(caixa);
+  }
+  caixa.appendChild(el);
   setTimeout(() => el.remove(), 3600);
 }
 const erroAviso = (e) => aviso(e?.message || 'Erro inesperado.', 'erro');
@@ -356,7 +362,7 @@ function modalAlterarSenha() {
         try {
           await api.post('/api/minha-senha', { atual: d.atual, nova: d.nova });
           fecharModal(true);
-          toast('Senha alterada. Use a nova senha no próximo acesso.');
+          aviso('Senha alterada. Use a nova senha no próximo acesso.');
         } catch (err) {
           msg.innerHTML = `<div class="aviso erro">${esc(err.message)}</div>`;
         }

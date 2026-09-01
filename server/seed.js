@@ -20,11 +20,123 @@ const SALAS = ['Sala de atendimento 1', 'Sala de atendimento 2'];
    Em uso normal o sistema nasce apenas com a equipe, as salas e os modelos. */
 const DEMO = process.env.DADOS_DEMO === '1';
 
+
+/* ---------------------------------------------------------------------------
+   Roteiro padrão da anamnese
+   ---------------------------------------------------------------------------
+   É apenas um ponto de partida: a clínica edita blocos e perguntas em
+   Configurações → Anamnese. Predomina seleção em vez de digitação, porque a
+   entrevista acontece com a família na sala, quase sempre no tablet.
+   O sistema não conclui nada a partir daqui — apenas organiza o que foi dito.
+--------------------------------------------------------------------------- */
+const ROTEIRO_ANAMNESE = [
+  {
+    id: 'queixa', titulo: 'Motivo da procura',
+    perguntas: [
+      { id: 'quem_encaminhou', rotulo: 'Quem indicou a clínica', tipo: 'selecao',
+        opcoes: ['Escola', 'Pediatra', 'Neurologista', 'Psicólogo(a)', 'Fonoaudiólogo(a)', 'Indicação de família', 'Procura espontânea', 'Outro'] },
+      { id: 'queixa_principal', rotulo: 'Queixa principal (nas palavras da família)', tipo: 'texto' },
+      { id: 'inicio_dificuldade', rotulo: 'Desde quando percebem a dificuldade', tipo: 'selecao',
+        opcoes: ['Sempre foi assim', 'Menos de 6 meses', 'Cerca de 1 ano', 'Mais de 2 anos', 'Após entrar na escola', 'Não sabem precisar'] },
+      { id: 'avaliacoes_anteriores', rotulo: 'Já passou por avaliação ou terapia antes', tipo: 'texto' },
+      { id: 'laudo', rotulo: 'Possui laudo ou diagnóstico já fechado', tipo: 'selecao',
+        opcoes: ['Não possui', 'Em investigação', 'Sim — trouxe o documento', 'Sim — não trouxe'] }
+    ]
+  },
+  {
+    id: 'gestacao', titulo: 'Gestação e nascimento',
+    perguntas: [
+      { id: 'gestacao', rotulo: 'Como foi a gestação', tipo: 'selecao',
+        opcoes: ['Sem intercorrências', 'Com intercorrências', 'Não sabe informar'] },
+      { id: 'gestacao_detalhe', rotulo: 'Se houve intercorrência, qual', tipo: 'texto' },
+      { id: 'tipo_parto', rotulo: 'Tipo de parto', tipo: 'selecao', opcoes: ['Normal', 'Cesárea', 'Fórceps', 'Não sabe informar'] },
+      { id: 'prematuro', rotulo: 'Nasceu prematuro', tipo: 'sim_nao' },
+      { id: 'intercorrencia_parto', rotulo: 'Intercorrências no parto ou logo após', tipo: 'texto' }
+    ]
+  },
+  {
+    id: 'desenvolvimento', titulo: 'Desenvolvimento',
+    perguntas: [
+      { id: 'sentou_andou', rotulo: 'Idade em que sentou e andou', tipo: 'selecao',
+        opcoes: ['Dentro do esperado', 'Um pouco depois do esperado', 'Bem depois do esperado', 'Não sabe informar'] },
+      { id: 'primeiras_palavras', rotulo: 'Primeiras palavras', tipo: 'selecao',
+        opcoes: ['Dentro do esperado', 'Um pouco depois do esperado', 'Bem depois do esperado', 'Não sabe informar'] },
+      { id: 'fala_atual', rotulo: 'Como está a fala hoje', tipo: 'selecao',
+        opcoes: ['Clara e compreensível', 'Trocas pontuais de sons', 'Difícil de compreender', 'Fala pouco', 'Não verbal'] },
+      { id: 'controle_esfincter', rotulo: 'Controle de esfíncteres', tipo: 'selecao',
+        opcoes: ['Adquirido na idade esperada', 'Adquirido mais tarde', 'Ainda em processo', 'Usa fralda'] },
+      { id: 'observacoes_desenvolvimento', rotulo: 'Outras observações da família', tipo: 'texto' }
+    ]
+  },
+  {
+    id: 'saude', titulo: 'Saúde',
+    perguntas: [
+      { id: 'acompanhamento_medico', rotulo: 'Acompanhamento médico atual', tipo: 'texto' },
+      { id: 'medicacao', rotulo: 'Faz uso de medicação', tipo: 'texto' },
+      { id: 'visao_audicao', rotulo: 'Visão e audição já avaliadas', tipo: 'selecao',
+        opcoes: ['Ambas avaliadas, sem alteração', 'Com alteração — em acompanhamento', 'Ainda não avaliadas', 'Não sabe informar'] },
+      { id: 'alergias', rotulo: 'Alergias, crises ou condições de saúde relevantes', tipo: 'texto' }
+    ]
+  },
+  {
+    id: 'escola', titulo: 'Vida escolar',
+    perguntas: [
+      { id: 'escola_atual', rotulo: 'Escola e ano que cursa', tipo: 'texto' },
+      { id: 'adaptacao', rotulo: 'Adaptação à escola', tipo: 'selecao',
+        opcoes: ['Boa', 'Com dificuldade no início', 'Ainda difícil', 'Recusa ir à escola'] },
+      { id: 'relato_escola', rotulo: 'O que a escola relata', tipo: 'texto' },
+      { id: 'dificuldade_escolar', rotulo: 'Onde aparece a maior dificuldade', tipo: 'selecao',
+        opcoes: ['Leitura', 'Escrita', 'Matemática', 'Atenção em sala', 'Comportamento', 'Relação com colegas', 'Várias áreas'] },
+      { id: 'apoio_escolar', rotulo: 'Tem apoio na escola (AEE, mediador, adaptação)', tipo: 'texto' },
+      { id: 'licao_casa', rotulo: 'Como é a lição de casa', tipo: 'selecao',
+        opcoes: ['Faz sozinha', 'Faz com ajuda', 'Só faz com muita insistência', 'Não faz'] }
+    ]
+  },
+  {
+    id: 'rotina', titulo: 'Rotina e autonomia',
+    perguntas: [
+      { id: 'sono', rotulo: 'Sono', tipo: 'selecao',
+        opcoes: ['Dorme bem', 'Demora a pegar no sono', 'Acorda várias vezes', 'Dorme pouco'] },
+      { id: 'alimentacao', rotulo: 'Alimentação', tipo: 'selecao',
+        opcoes: ['Come de tudo', 'Seletiva', 'Muito seletiva', 'Com dificuldade de mastigação'] },
+      { id: 'telas', rotulo: 'Tempo de telas por dia', tipo: 'selecao',
+        opcoes: ['Até 1 hora', 'De 1 a 3 horas', 'De 3 a 5 horas', 'Mais de 5 horas'] },
+      { id: 'autonomia', rotulo: 'Autonomia no dia a dia (vestir, higiene, organizar o material)', tipo: 'selecao',
+        opcoes: ['Faz sozinha', 'Faz com lembretes', 'Precisa de ajuda', 'Depende totalmente'] },
+      { id: 'atividades', rotulo: 'Atividades de que gosta', tipo: 'texto' }
+    ]
+  },
+  {
+    id: 'familia', titulo: 'Família e convivência',
+    perguntas: [
+      { id: 'com_quem_mora', rotulo: 'Com quem mora', tipo: 'texto' },
+      { id: 'irmaos', rotulo: 'Irmãos', tipo: 'texto' },
+      { id: 'quem_acompanha', rotulo: 'Quem acompanha os estudos em casa', tipo: 'texto' },
+      { id: 'mudancas', rotulo: 'Mudanças recentes na família (separação, luto, mudança de cidade)', tipo: 'texto' },
+      { id: 'convivio', rotulo: 'Como é a relação com outras crianças', tipo: 'selecao',
+        opcoes: ['Interage bem', 'Prefere ficar sozinha', 'Tem conflitos frequentes', 'Muito tímida'] }
+    ]
+  },
+  {
+    id: 'observacao', titulo: 'Observação da criança na sessão',
+    perguntas: [
+      { id: 'apresentacao', rotulo: 'Como chegou à sala', tipo: 'selecao',
+        opcoes: ['Tranquila', 'Tímida', 'Agitada', 'Resistente a entrar', 'Chorosa'] },
+      { id: 'contato', rotulo: 'Contato e comunicação', tipo: 'selecao',
+        opcoes: ['Estabelece contato com facilidade', 'Precisa de tempo', 'Pouco contato visual', 'Não se comunicou verbalmente'] },
+      { id: 'atencao_sessao', rotulo: 'Atenção durante a atividade', tipo: 'selecao',
+        opcoes: ['Manteve-se atenta', 'Dispersou algumas vezes', 'Dispersou com frequência', 'Não sustentou a atividade'] },
+      { id: 'observacoes_sessao', rotulo: 'Outras observações da profissional', tipo: 'texto' }
+    ]
+  }
+];
+
 function seed() {
   if (db.usuarios.all().length) {
     ajustarContasExistentes();
     garantirContaSuporte();
     somenteSuporteAdministra();
+    garantirRoteiroAnamnese();
     return;
   }
 
@@ -34,6 +146,7 @@ function seed() {
     sistema: 'PsicoAprender Gestão',
     subtitulo: 'Organização para cuidar melhor.',
     salas: SALAS,
+    roteiro_anamnese: ROTEIRO_ANAMNESE,
     endereco: 'QNE 15, Lote 25, Sala 106 — Taguatinga Norte, Brasília/DF',
     telefone: '(61) 99921-4773',
     email: 'psicoaprenderdf@gmail.com',
@@ -323,6 +436,15 @@ function seed() {
 /* Decisão de 01/09/2026: enquanto a equipe não definir quem administra o sistema,
    nenhuma profissional fica com acesso de administradora — só a conta de suporte.
    Roda uma única vez; depois disso os papéis são definidos pela tela de usuários. */
+/* Bases criadas antes da anamnese existir recebem o roteiro padrão. */
+function garantirRoteiroAnamnese() {
+  const cfg = db.config.get() || {};
+  if (Array.isArray(cfg.roteiro_anamnese) && cfg.roteiro_anamnese.length) return;
+  db.config.set({ ...cfg, roteiro_anamnese: ROTEIRO_ANAMNESE });
+  db.persistNow();
+  console.log('Roteiro padrão de anamnese instalado.');
+}
+
 function somenteSuporteAdministra() {
   const cfg = db.config.get() || {};
   if (cfg.papeis_revisados) return;
@@ -373,4 +495,4 @@ function ajustarContasExistentes() {
   }
 }
 
-module.exports = { seed, AREAS, SALAS };
+module.exports = { seed, AREAS, SALAS, ROTEIRO_ANAMNESE };

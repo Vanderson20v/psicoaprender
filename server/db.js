@@ -35,7 +35,7 @@ const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const COLLECTIONS = [
   'usuarios', 'profissionais', 'pacientes', 'responsaveis', 'atendimentos',
   'bloqueios', 'registros', 'templates', 'pagamentos', 'faltas',
-  'documentos', 'relatorios', 'notificacoes', 'logs', 'sessoes'
+  'documentos', 'relatorios', 'notificacoes', 'logs', 'sessoes', 'anamneses'
 ];
 
 function ensureDirs() {
