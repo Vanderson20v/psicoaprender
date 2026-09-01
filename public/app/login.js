@@ -85,6 +85,65 @@ function telaLogin(mensagem = '') {
   });
 }
 
+/** Primeiro acesso: a senha veio pronta do administrador, então a profissional
+    define a sua antes de ver qualquer dado. Não dá para pular esta tela. */
+function telaTrocarSenha() {
+  document.getElementById('raiz').innerHTML = `
+  <div class="entrada">
+    <section class="formulario">
+      <div class="caixa">
+        <img src="/assets/logo.png" alt="PsicoAprender" style="width:150px;display:block;margin:0 auto 18px">
+        <h1 style="font-size:21px;margin-bottom:4px">Crie a sua senha</h1>
+        <p style="color:var(--tinta-3);font-size:13.5px;margin:0 0 22px">
+          Você entrou com a senha provisória. Escolha uma senha só sua para continuar —
+          ela protege os dados das crianças atendidas.</p>
+        <div id="msg-senha"></div>
+        <form id="form-senha">
+          <div class="campo"><label>Senha provisória</label>
+            <input type="password" name="atual" required autocomplete="current-password"></div>
+          <div class="campo"><label>Nova senha</label>
+            <input type="password" name="nova" required minlength="6" autocomplete="new-password"
+              placeholder="Ao menos 6 caracteres"></div>
+          <div class="campo"><label>Repita a nova senha</label>
+            <input type="password" name="repetir" required minlength="6" autocomplete="new-password"></div>
+          <button class="btn btn-primario btn-bloco btn-grande" id="salvar-senha" type="submit">Salvar e entrar</button>
+        </form>
+        <button class="btn btn-sutil btn-bloco" style="margin-top:10px" id="sair-senha">Sair</button>
+      </div>
+    </section>
+  </div>`;
+
+  const msg = document.getElementById('msg-senha');
+  document.getElementById('sair-senha').addEventListener('click', () => encerrarSessao());
+
+  document.getElementById('form-senha').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(e.target));
+    msg.innerHTML = '';
+    if (d.nova !== d.repetir) {
+      msg.innerHTML = '<div class="aviso erro">As duas senhas novas não são iguais.</div>';
+      return;
+    }
+    const botao = document.getElementById('salvar-senha');
+    botao.disabled = true; botao.textContent = 'Salvando…';
+    try {
+      const r = await buscar(comToken('/api/minha-senha'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + (Token.get() || '') },
+        credentials: 'same-origin',
+        body: JSON.stringify({ atual: d.atual, nova: d.nova })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || 'Não foi possível salvar a senha.');
+      App.sessao.trocar_senha = false;
+      await iniciarSessao();
+    } catch (err) {
+      msg.innerHTML = `<div class="aviso erro">${esc(err.message)}</div>`;
+      botao.disabled = false; botao.textContent = 'Salvar e entrar';
+    }
+  });
+}
+
 /** Encerra a sessão local e volta para a tela de login (sem trocar de página). */
 function encerrarSessao(mensagem = '') {
   Token.limpar();
@@ -104,6 +163,7 @@ async function iniciarSessao() {
   App.sessao = dados.usuario;
   App.permissoes = dados.permissoes;
   App.config = dados.config || {};
+  if (dados.usuario.trocar_senha) { telaTrocarSenha(); return true; }
   montarLayout();
   if (!location.hash.startsWith('#/')) location.hash = '#/dashboard';
   await navegar();

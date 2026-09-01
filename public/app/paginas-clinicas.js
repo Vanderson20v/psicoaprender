@@ -94,6 +94,14 @@ App.paginas.dashboard = async (alvo) => {
 /* ================================ AGENDA ================================ */
 App.estadoAgenda = { visao: 'salas', data: hojeISO(), profissional: '', sala: '' };
 
+/* Nome exibido no quadro da agenda: horário de outra profissional aparece como
+   reservado, para a colega saber que a sala e o horário estão ocupados sem
+   descobrir quem é a criança atendida. */
+function rotuloEvento(a) {
+  if (a.reservado_por_outra) return 'Reservado';
+  return [primeiroNome(a.paciente?.nome), (a.paciente?.nome || '').split(' ')[1] || ''].join(' ').trim();
+}
+
 App.paginas.agenda = async (alvo) => {
   const e = App.estadoAgenda;
   const base = new Date(e.data + 'T12:00:00');
@@ -110,7 +118,8 @@ App.paginas.agenda = async (alvo) => {
   }
 
   const [ats, bloqueios, profs] = await Promise.all([
-    api.get('/api/atendimentos', { de, ate, profissional_id: e.profissional }),
+    // agenda=1: mostra também os horários das colegas, sem os dados do paciente delas
+    api.get('/api/atendimentos', { de, ate, profissional_id: e.profissional, agenda: 1 }),
     api.get('/api/bloqueios', { de, ate }),
     api.get('/api/profissionais')
   ]);
@@ -192,8 +201,8 @@ function gradeAgenda(visao, de, ate, ats, bloqueios) {
       const bloq = bloqueios.find(b => b.data === d && b.hora_inicio <= hora && b.hora_fim > hora);
       html += `<div class="agenda-celula ${bloq ? 'bloqueada' : ''}" ${!evs.length && !bloq ? `data-celula="${d} ${hora}"` : ''} style="cursor:${evs.length || bloq ? 'default' : 'pointer'}">
         ${bloq ? `<div style="font-size:11px;color:var(--tinta-3);padding:3px">${esc(bloq.tipo)}</div>` : ''}
-        ${evs.map(a => `<div class="evento e-${a.status}" data-evento="${a.id}">
-            <span class="p-nome">${esc(primeiroNome(a.paciente?.nome))} ${esc((a.paciente?.nome || '').split(' ')[1] || '')}</span>
+        ${evs.map(a => `<div class="evento e-${a.status}${a.reservado_por_outra ? ' evento-reservado' : ''}" ${a.reservado_por_outra ? '' : `data-evento="${a.id}"`}>
+            <span class="p-nome">${esc(rotuloEvento(a))}</span>
             <span class="p-meta">${a.hora} · ${esc(primeiroNome(a.profissional?.nome))}</span>
             <span class="p-sala">${esc((a.sala || '').replace('Sala de atendimento ', 'Sala '))}</span>
           </div>`).join('')}
@@ -222,8 +231,8 @@ function gradeSalas(data, ats, bloqueios) {
           ${!evs.length && !bloq ? `data-celula="${data} ${hora} ${encodeURIComponent(sala)}"` : ''}
           style="cursor:${evs.length || bloq ? 'default' : 'pointer'}">
         ${bloq ? `<div style="font-size:11px;color:var(--tinta-3);padding:3px">${esc(bloq.tipo)}${bloq.motivo ? ' — ' + esc(bloq.motivo) : ''}</div>` : ''}
-        ${evs.map(a => `<div class="evento e-${a.status}" data-evento="${a.id}">
-            <span class="p-nome">${esc(a.paciente?.nome || '')}</span>
+        ${evs.map(a => `<div class="evento e-${a.status}${a.reservado_por_outra ? ' evento-reservado' : ''}" ${a.reservado_por_outra ? '' : `data-evento="${a.id}"`}>
+            <span class="p-nome">${esc(a.reservado_por_outra ? 'Reservado' : (a.paciente?.nome || ''))}</span>
             <span class="p-meta">${a.hora} · ${esc(a.profissional?.nome || '')}</span>
             <span class="p-sala">${esc(a.tipo)}</span>
           </div>`).join('')}
@@ -243,7 +252,7 @@ function gradeMes(de, ate, ats) {
     const fora = new Date(d + 'T12:00:00').getMonth() !== mesRef;
     html += `<div class="mes-dia ${fora ? 'fora' : ''} ${d === hoje ? 'hoje' : ''}">
       <div class="num" data-dia="${d}" style="cursor:pointer">${d.slice(8, 10)}</div>
-      ${evs.slice(0, 4).map(a => `<div class="mes-evento e-${a.status}" data-evento="${a.id}" style="border-left-color:${a.status === 'falta' ? 'var(--vermelho)' : a.status === 'realizado' ? 'var(--verde)' : a.status === 'confirmado' ? 'var(--azul)' : 'var(--tinta-3)'}">${a.hora} ${esc(primeiroNome(a.paciente?.nome))}</div>`).join('')}
+      ${evs.slice(0, 4).map(a => `<div class="mes-evento e-${a.status}" ${a.reservado_por_outra ? '' : `data-evento="${a.id}"`} style="border-left-color:${a.status === 'falta' ? 'var(--vermelho)' : a.status === 'realizado' ? 'var(--verde)' : a.status === 'confirmado' ? 'var(--azul)' : 'var(--tinta-3)'}">${a.hora} ${esc(a.reservado_por_outra ? 'Reservado' : primeiroNome(a.paciente?.nome))}</div>`).join('')}
       ${evs.length > 4 ? `<div class="td-secundario" style="font-size:11px">+${evs.length - 4} atendimentos</div>` : ''}
     </div>`;
   }

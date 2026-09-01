@@ -244,7 +244,10 @@ App.paginas.financeiro = async (alvo, rota) => {
   const doMes = status ? pagamentos : pagamentos.filter(p => p.competencia === competencia);
 
   alvo.innerHTML = `<div class="pagina">
-    ${cabecalho('Financeiro', 'Controle de mensalidades e recebimentos',
+    ${cabecalho('Financeiro',
+    App.permissoes.todos_pacientes
+      ? 'Controle de mensalidades e recebimentos'
+      : 'Mensalidades e recebimentos dos seus pacientes',
     `<input type="month" value="${competencia}" id="mes" style="width:auto">
        <button class="btn btn-primario" id="novo">${ico('mais')} Lançamento</button>`)}
 
@@ -280,7 +283,7 @@ App.paginas.financeiro = async (alvo, rota) => {
       </section>
 
       <div style="display:grid;gap:16px">
-        <section class="painel"><div class="painel-titulo"><h2>Faturamento por profissional</h2></div>
+        <section class="painel"><div class="painel-titulo"><h2>${App.permissoes.todos_pacientes ? 'Faturamento por profissional' : 'Meu faturamento'}</h2></div>
           <div class="painel-corpo sem-padding"><ul class="lista-limpa">
             ${resumo.por_profissional.map(p => `<li>
               <div style="flex:1"><div class="td-principal">${esc(p.profissional)}</div>

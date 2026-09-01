@@ -21,7 +21,12 @@ const SALAS = ['Sala de atendimento 1', 'Sala de atendimento 2'];
 const DEMO = process.env.DADOS_DEMO === '1';
 
 function seed() {
-  if (db.usuarios.all().length) return;
+  if (db.usuarios.all().length) {
+    ajustarContasExistentes();
+    garantirContaSuporte();
+    somenteSuporteAdministra();
+    return;
+  }
 
   db.config.set({
     clinica: 'PsicoAprender',
@@ -56,7 +61,7 @@ function seed() {
       cor: '#6f5493', foto: '/assets/equipe/vanessa.jpg',
       formacao: 'Formação em Pedagogia',
       especialidades: 'Especialista em psicopedagogia clínica e institucional · Pós-graduada em AEE (Atendimento Educacional Especializado)',
-      papel: 'admin'
+      papel: 'profissional'
     },
     {
       nome: 'Helen Cristina', profissao: 'Psicopedagoga clínica e institucional',
@@ -104,14 +109,14 @@ function seed() {
     const { papel, ...dados } = p;
     const registro = db.profissionais.insert(dados);
     db.usuarios.insert({
-      nome: p.nome, email: p.email, senha: hashSenha('psico123'),
+      nome: p.nome, email: p.email, senha: hashSenha('psico123'), trocar_senha: true,
       papel, profissional_id: registro.id, ativo: true
     });
     return registro;
   });
 
   db.usuarios.insert({
-    nome: 'Recepção', email: 'recepcao@psicoaprender.com.br', senha: hashSenha('psico123'),
+    nome: 'Recepção', email: 'recepcao@psicoaprender.com.br', senha: hashSenha('psico123'), trocar_senha: true,
     papel: 'administrativo', profissional_id: null, ativo: true
   });
 
@@ -306,10 +311,66 @@ function seed() {
     });
   }
 
+  garantirContaSuporte();
+  db.config.set({ ...db.config.get(), papeis_revisados: true });
+
   db.persistNow();
   console.log(DEMO
     ? 'Dados iniciais da PsicoAprender criados (com pacientes de demonstração).'
     : 'Dados iniciais da PsicoAprender criados: equipe, salas e modelos. Sem pacientes fictícios.');
+}
+
+/* Decisão de 01/09/2026: enquanto a equipe não definir quem administra o sistema,
+   nenhuma profissional fica com acesso de administradora — só a conta de suporte.
+   Roda uma única vez; depois disso os papéis são definidos pela tela de usuários. */
+function somenteSuporteAdministra() {
+  const cfg = db.config.get() || {};
+  if (cfg.papeis_revisados) return;
+  let mudou = 0;
+  for (const u of db.usuarios.all()) {
+    if (u.papel === 'admin' && !u.suporte) {
+      db.usuarios.update(u.id, { papel: 'profissional' });
+      mudou++;
+    }
+  }
+  db.config.set({ ...cfg, papeis_revisados: true });
+  db.persistNow();
+  if (mudou) console.log(`Acesso de administradora removido de ${mudou} conta(s) de profissional.`);
+}
+
+/* Conta técnica de quem acompanha os testes e implementa as melhorias.
+   Tem acesso de administrador, mas não é uma profissional: não aparece na equipe,
+   na agenda nem nos relatórios. O e-mail pode ser trocado pela variável de ambiente
+   EMAIL_SUPORTE, e a senha inicial pela SENHA_SUPORTE. */
+function garantirContaSuporte() {
+  const email = (process.env.EMAIL_SUPORTE || 'suporte@psicoaprender.com.br').toLowerCase();
+  if (db.usuarios.all().some(u => u.email === email)) return;
+  db.usuarios.insert({
+    nome: 'Suporte técnico',
+    email,
+    senha: hashSenha(process.env.SENHA_SUPORTE || 'psico123'),
+    trocar_senha: true,
+    papel: 'admin',
+    profissional_id: null,
+    suporte: true,
+    ativo: true
+  });
+  db.persistNow();
+  console.log(`Conta de suporte técnico disponível: ${email}`);
+}
+
+/* Contas criadas antes da troca obrigatória existir: enquanto estiverem com a senha
+   inicial distribuída pelo administrador, precisam definir uma senha própria no
+   primeiro acesso. Roda uma única vez por conta. */
+function ajustarContasExistentes() {
+  let mudou = 0;
+  for (const u of db.usuarios.all()) {
+    if (u.trocar_senha === undefined) { db.usuarios.update(u.id, { trocar_senha: true }); mudou++; }
+  }
+  if (mudou) {
+    db.persistNow();
+    console.log(`Troca de senha no primeiro acesso ativada para ${mudou} conta(s).`);
+  }
 }
 
 module.exports = { seed, AREAS, SALAS };

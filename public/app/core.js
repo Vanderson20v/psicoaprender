@@ -330,6 +330,41 @@ function alternarMenu() {
   }
 }
 
+function modalAlterarSenha() {
+  abrirModal({
+    titulo: 'Alterar minha senha',
+    corpo: `<form id="form-troca">
+        <div class="campo"><label>Senha atual</label>
+          <input type="password" name="atual" required autocomplete="current-password"></div>
+        <div class="campo"><label>Nova senha</label>
+          <input type="password" name="nova" required minlength="6" autocomplete="new-password"
+            placeholder="Ao menos 6 caracteres"></div>
+        <div class="campo"><label>Repita a nova senha</label>
+          <input type="password" name="repetir" required minlength="6" autocomplete="new-password"></div>
+        <div id="msg-troca"></div>
+      </form>`,
+    rodape: `<button class="btn" data-fechar>Cancelar</button>
+      <button class="btn btn-primario" id="salvar-troca">Salvar nova senha</button>`,
+    aoAbrir: (f) => {
+      f.querySelector('#salvar-troca').addEventListener('click', async () => {
+        const d = Object.fromEntries(new FormData(f.querySelector('#form-troca')));
+        const msg = f.querySelector('#msg-troca');
+        if (d.nova !== d.repetir) {
+          msg.innerHTML = '<div class="aviso erro">As duas senhas novas não são iguais.</div>';
+          return;
+        }
+        try {
+          await api.post('/api/minha-senha', { atual: d.atual, nova: d.nova });
+          fecharModal(true);
+          toast('Senha alterada. Use a nova senha no próximo acesso.');
+        } catch (err) {
+          msg.innerHTML = `<div class="aviso erro">${esc(err.message)}</div>`;
+        }
+      });
+    }
+  });
+}
+
 function menuUsuario() {
   abrirModal({
     titulo: 'Conta',
@@ -340,11 +375,18 @@ function menuUsuario() {
         <div style="color:var(--tinta-3);font-size:13px">${esc(App.sessao.profissional?.profissao || 'Equipe administrativa')}</div></div>
       </div>
       <div class="aviso info">Sessão encerra automaticamente após 12 horas. Dados de crianças e adolescentes: uso restrito conforme a LGPD.</div>`,
-    rodape: `<button class="btn" data-fechar>Fechar</button><button class="btn btn-perigo" id="sair">Sair do sistema</button>`,
-    aoAbrir: (f) => f.querySelector('#sair').addEventListener('click', async () => {
-      try { await api.post('/api/logout'); } catch (_) { }
-      fecharModal(true); encerrarSessao('Sessão encerrada com segurança.');
-    })
+    rodape: `<button class="btn" data-fechar>Fechar</button>
+      <button class="btn" id="trocar-senha">Alterar senha</button>
+      <button class="btn btn-perigo" id="sair">Sair do sistema</button>`,
+    aoAbrir: (f) => {
+      f.querySelector('#sair').addEventListener('click', async () => {
+        try { await api.post('/api/logout'); } catch (_) { }
+        fecharModal(true); encerrarSessao('Sessão encerrada com segurança.');
+      });
+      f.querySelector('#trocar-senha').addEventListener('click', () => {
+        fecharModal(true); modalAlterarSenha();
+      });
+    }
   });
 }
 

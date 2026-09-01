@@ -29,7 +29,11 @@ const cruza = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
  * um objeto descrevendo o impedimento (sala ocupada, profissional ocupada
  * ou bloqueio de agenda), sempre informando por quem.
  */
-function conflitoDeAgenda({ data, hora, duracao = 50, sala, profissional_id, ignorar_id, ignorar_recorrencia }) {
+function conflitoDeAgenda({ data, hora, duracao = 50, sala, profissional_id, ignorar_id, ignorar_recorrencia, usuario }) {
+  /* Quem não acompanha aquele paciente não precisa saber de quem é o horário:
+     basta saber que está ocupado e com qual profissional. */
+  const nomeVisivel = (paciente) =>
+    (!usuario || A.podeVerPaciente(usuario, paciente)) ? (paciente?.nome || 'paciente') : 'atendimento reservado';
   const ini = minutos(hora), termino = fim(hora, duracao);
   const doDia = db.atendimentos.find({ data }).filter(a =>
     !['cancelado', 'falta'].includes(a.status) &&
@@ -43,15 +47,15 @@ function conflitoDeAgenda({ data, hora, duracao = 50, sala, profissional_id, ign
     if (sala && a.sala === sala) {
       return {
         motivo: 'sala',
-        mensagem: `${sala} já está ocupada em ${data.split('-').reverse().join('/')} às ${a.hora} — ${paciente?.nome || 'paciente'} com ${profissional?.nome || 'profissional'}.`,
-        atendimento: { id: a.id, hora: a.hora, duracao: a.duracao, sala: a.sala, paciente: paciente?.nome, profissional: profissional?.nome }
+        mensagem: `${sala} já está ocupada em ${data.split('-').reverse().join('/')} às ${a.hora} — ${nomeVisivel(paciente)} com ${profissional?.nome || 'profissional'}.`,
+        atendimento: { id: a.id, hora: a.hora, duracao: a.duracao, sala: a.sala, paciente: nomeVisivel(paciente), profissional: profissional?.nome }
       };
     }
     if (profissional_id && a.profissional_id === Number(profissional_id)) {
       return {
         motivo: 'profissional',
-        mensagem: `${profissional?.nome || 'A profissional'} já tem atendimento em ${data.split('-').reverse().join('/')} às ${a.hora} (${paciente?.nome || 'paciente'}, ${a.sala || 'sem sala'}).`,
-        atendimento: { id: a.id, hora: a.hora, duracao: a.duracao, sala: a.sala, paciente: paciente?.nome, profissional: profissional?.nome }
+        mensagem: `${profissional?.nome || 'A profissional'} já tem atendimento em ${data.split('-').reverse().join('/')} às ${a.hora} (${nomeVisivel(paciente)}, ${a.sala || 'sem sala'}).`,
+        atendimento: { id: a.id, hora: a.hora, duracao: a.duracao, sala: a.sala, paciente: nomeVisivel(paciente), profissional: profissional?.nome }
       };
     }
   }
@@ -129,13 +133,32 @@ app.get('/api/sessao', (req, res) => {
   if (!u) return res.status(401).json({ erro: 'sem sessão' });
   const p = u.profissional_id ? db.profissionais.byId(u.profissional_id) : null;
   res.json({
-    usuario: { id: u.id, nome: u.nome, email: u.email, papel: u.papel, profissional_id: u.profissional_id, profissional: p },
+    usuario: { id: u.id, nome: u.nome, email: u.email, papel: u.papel, profissional_id: u.profissional_id, profissional: p, trocar_senha: !!u.trocar_senha },
     permissoes: A.permissoesDe(u),
     config: db.config.get()
   });
 });
 
 app.use('/api', A.exigirLogin);
+
+/* Troca da própria senha. Usado tanto na troca obrigatória do primeiro acesso
+   quanto quando a profissional quiser mudar depois, em Minha conta. */
+app.post('/api/minha-senha', (req, res) => {
+  const u = A.usuarioDaRequisicao(req);
+  const { atual, nova } = req.body || {};
+  if (!A.conferirSenha(atual || '', u.senha)) {
+    return res.status(400).json({ erro: 'A senha atual está incorreta.' });
+  }
+  if (!nova || nova.length < 6) {
+    return res.status(400).json({ erro: 'A nova senha deve ter ao menos 6 caracteres.' });
+  }
+  if (nova === atual) {
+    return res.status(400).json({ erro: 'A nova senha precisa ser diferente da atual.' });
+  }
+  db.usuarios.update(u.id, { senha: A.hashSenha(nova), trocar_senha: false, recuperacao: null });
+  A.registrarLog(req, 'senha_alterada', 'usuarios', u.id);
+  res.json({ ok: true });
+});
 
 /* ============================ HELPERS ============================ */
 
@@ -242,16 +265,39 @@ function enriquecerAtendimento(a) {
   };
 }
 
+/* A agenda é compartilhada para ninguém marcar em cima de ninguém, mas o horário de
+   outra profissional aparece apenas como reservado: sem nome de paciente, sem valor,
+   sem observação. Quem cuida da recepção continua vendo tudo, é o trabalho dela. */
+function ocultarDadosDeOutra(a) {
+  return {
+    id: a.id, data: a.data, hora: a.hora, duracao: a.duracao, sala: a.sala,
+    status: a.status, profissional_id: a.profissional_id,
+    profissional: db.profissionais.byId(a.profissional_id),
+    paciente: null, paciente_id: null,
+    reservado_por_outra: true,
+    tipo: 'Horário reservado', observacao: '', valor: null, tem_registro: false
+  };
+}
+
 app.get('/api/atendimentos', (req, res) => {
-  const { de, ate, paciente_id, profissional_id, status } = req.query;
+  const { de, ate, paciente_id, profissional_id, status, so_meus } = req.query;
   const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
-  let lista = db.atendimentos.all().filter(a => visiveis.has(a.paciente_id));
+  const meus = (a) => visiveis.has(a.paciente_id);
+
+  /* Fora da agenda (listas de atendimentos, filtros de falta, etc.) continua valendo
+     só o que é da profissional; a visão compartilhada é pedida com agenda=1. */
+  const compartilhada = req.query.agenda === '1' && !so_meus;
+  let lista = db.atendimentos.all().filter(a => compartilhada || meus(a));
+
   if (de) lista = lista.filter(a => a.data >= de);
   if (ate) lista = lista.filter(a => a.data <= ate);
   if (paciente_id) lista = lista.filter(a => a.paciente_id === Number(paciente_id));
   if (profissional_id) lista = lista.filter(a => a.profissional_id === Number(profissional_id));
   if (status) lista = lista.filter(a => a.status === status);
-  res.json(lista.sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora)).map(enriquecerAtendimento));
+
+  res.json(lista
+    .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora))
+    .map(a => meus(a) ? enriquecerAtendimento(a) : ocultarDadosDeOutra(a)));
 });
 
 app.post('/api/atendimentos', A.exigir('agenda'), (req, res) => {
@@ -277,7 +323,7 @@ app.post('/api/atendimentos', A.exigir('agenda'), (req, res) => {
   // Trava: nenhuma data pode conflitar com sala, profissional ou bloqueio
   const conflitos = [];
   for (const data of datas) {
-    const c = conflitoDeAgenda({ data, hora: d.hora, duracao, sala, profissional_id });
+    const c = conflitoDeAgenda({ data, hora: d.hora, duracao, sala, profissional_id, usuario: req.usuario });
     if (c) conflitos.push({ data, ...c });
   }
   if (conflitos.length && !d.ignorar_conflitos) {
@@ -308,7 +354,8 @@ app.put('/api/atendimentos/:id', A.exigir('agenda'), (req, res) => {
     const c = conflitoDeAgenda({
       data: corpo.data || a.data, hora: corpo.hora || a.hora,
       duracao: corpo.duracao || a.duracao, sala: corpo.sala || a.sala,
-      profissional_id: corpo.profissional_id || a.profissional_id, ignorar_id: a.id
+      profissional_id: corpo.profissional_id || a.profissional_id, ignorar_id: a.id,
+      usuario: req.usuario
     });
     if (c) return res.status(409).json({ erro: c.mensagem, conflito: c });
   }
@@ -352,7 +399,7 @@ app.get('/api/agenda/disponibilidade', (req, res) => {
     for (let h = hIni; h < hFim; h++) {
       for (const m of ['00', '30']) {
         const hora = `${String(h).padStart(2, '0')}:${m}`;
-        const c = conflitoDeAgenda({ data, hora, duracao, sala, profissional_id });
+        const c = conflitoDeAgenda({ data, hora, duracao, sala, profissional_id, usuario: req.usuario });
         horarios.push({
           hora,
           livre: !c,
@@ -497,7 +544,13 @@ app.get('/api/financeiro/resumo', A.exigir('financeiro'), (req, res) => {
   const aReceber = soma(doMes.filter(p => p.status === 'pendente' && p.vencimento >= hoje));
   const emAtraso = soma(todos.filter(p => p.status === 'pendente' && p.vencimento < hoje));
 
-  const porProfissional = db.profissionais.all().map(pr => ({
+  /* Quem só enxerga os próprios pacientes também só vê a própria linha: mostrar as
+     colegas zeradas dava a impressão falsa de que ninguém havia faturado no mês. */
+  const equipeVisivel = req.perm.todos_pacientes
+    ? db.profissionais.all()
+    : db.profissionais.all().filter(pr => pr.id === req.usuario.profissional_id);
+
+  const porProfissional = equipeVisivel.map(pr => ({
     profissional: pr.nome,
     recebido: soma(doMes.filter(p => p.profissional_id === pr.id && p.status === 'pago')),
     previsto: soma(doMes.filter(p => p.profissional_id === pr.id && p.status !== 'cancelado'))
@@ -679,7 +732,7 @@ app.post('/api/profissionais', A.exigir('profissionais'), (req, res) => {
   const { criar_usuario, senha, papel, ...dados } = req.body || {};
   const p = db.profissionais.insert(dados);
   if (criar_usuario && dados.email) {
-    db.usuarios.insert({ nome: dados.nome, email: dados.email.toLowerCase(), senha: A.hashSenha(senha || 'psico123'), papel: papel || 'profissional', profissional_id: p.id, ativo: true });
+    db.usuarios.insert({ nome: dados.nome, email: dados.email.toLowerCase(), senha: A.hashSenha(senha || 'psico123'), trocar_senha: true, papel: papel || 'profissional', profissional_id: p.id, ativo: true });
   }
   A.registrarLog(req, 'criacao', 'profissionais', p.id, p.nome);
   res.json(p);
@@ -692,7 +745,7 @@ app.get('/api/usuarios', A.exigir('configuracoes'), (req, res) =>
   res.json(db.usuarios.all().map(u => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, ativo: u.ativo, profissional_id: u.profissional_id, ultimo_acesso: u.ultimo_acesso }))));
 app.put('/api/usuarios/:id', A.exigir('configuracoes'), (req, res) => {
   const { senha, ...dados } = req.body || {};
-  if (senha) dados.senha = A.hashSenha(senha);
+  if (senha) { dados.senha = A.hashSenha(senha); dados.trocar_senha = true; }
   const u = db.usuarios.update(req.params.id, dados);
   A.registrarLog(req, 'alteracao', 'usuarios', u?.id, u?.nome);
   res.json({ id: u.id, nome: u.nome, papel: u.papel, ativo: u.ativo });
@@ -700,7 +753,7 @@ app.put('/api/usuarios/:id', A.exigir('configuracoes'), (req, res) => {
 app.post('/api/usuarios', A.exigir('configuracoes'), (req, res) => {
   const d = req.body || {};
   if (db.usuarios.findOne({ email: (d.email || '').toLowerCase() })) return res.status(400).json({ erro: 'E-mail já cadastrado.' });
-  const u = db.usuarios.insert({ nome: d.nome, email: (d.email || '').toLowerCase(), senha: A.hashSenha(d.senha || 'psico123'), papel: d.papel || 'profissional', profissional_id: d.profissional_id ? Number(d.profissional_id) : null, ativo: true });
+  const u = db.usuarios.insert({ nome: d.nome, email: (d.email || '').toLowerCase(), senha: A.hashSenha(d.senha || 'psico123'), trocar_senha: true, papel: d.papel || 'profissional', profissional_id: d.profissional_id ? Number(d.profissional_id) : null, ativo: true });
   A.registrarLog(req, 'criacao', 'usuarios', u.id, u.nome);
   res.json({ id: u.id });
 });

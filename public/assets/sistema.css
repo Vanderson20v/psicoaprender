@@ -526,3 +526,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 .mapa-vaga.ocupada:hover { border-color: var(--linha); background: var(--superficie-2); }
 .mapa-vaga.escolhida { background: var(--roxo); border-color: var(--roxo); color: #fff; }
 .mapa-vaga .quem { display: block; font-size: 11px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Horário ocupado por outra profissional: presente na agenda, mas discreto e sem clique. */
+.evento.evento-reservado { opacity: .62; cursor: default; background: repeating-linear-gradient(135deg, var(--superficie-2), var(--superficie-2) 6px, var(--papel) 6px, var(--papel) 12px); }
+.evento.evento-reservado .p-nome { font-style: italic; color: var(--tinta-3); }

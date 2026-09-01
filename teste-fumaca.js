@@ -17,6 +17,9 @@ const rotas = ['#/dashboard', '#/agenda', '#/agenda?v=dia', '#/pacientes', '#/pa
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
 (async () => {
+  const EMAIL_TESTE = 'suporte@psicoaprender.com.br';
+  const SENHA_INICIAL = 'psico123';
+  const SENHA_NOVA = 'SenhaDeTeste2026';
   const dom = new JSDOM(fs.readFileSync(path.join(__dirname, 'public/sistema.html'), 'utf8'), {
     url: BASE + '/sistema.html', runScripts: 'outside-only', pretendToBeVisual: true
   });
@@ -50,10 +53,44 @@ const esperar = (ms) => new Promise(r => setTimeout(r, ms));
   if (!temLogin) erros.push('login não exibido');
 
   // ---- 2. login pela interface
-  w.document.querySelector('[name=email]').value = 'vanessa@psicoaprender.com.br';
-  w.document.querySelector('[name=senha]').value = 'psico123';
+  w.document.querySelector('[name=email]').value = EMAIL_TESTE;
+  w.document.querySelector('[name=senha]').value = SENHA_INICIAL;
   w.document.getElementById('form-login').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
   await esperar(1500);
+
+  /* Em base nova a senha ainda é a provisória; se o teste já rodou antes nesta base,
+     a conta usa SENHA_NOVA e a etapa de troca é pulada — assim o teste é repetível. */
+  const jaTrocada = /inválidos/.test(w.document.getElementById('msg')?.textContent || '');
+  if (jaTrocada) {
+    w.document.querySelector('[name=email]').value = EMAIL_TESTE;
+    w.document.querySelector('[name=senha]').value = SENHA_NOVA;
+    w.document.getElementById('form-login').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+    await esperar(1500);
+    console.log('ok    senha já trocada nesta base — etapa de primeiro acesso pulada');
+  }
+
+  // ---- 2b. primeiro acesso: o sistema exige criar uma senha própria antes de tudo
+  const pediuTroca = !!w.document.getElementById('form-senha');
+  if (!jaTrocada) {
+    console.log((pediuTroca ? 'ok    ' : 'FALHA ') + 'primeiro acesso exige trocar a senha provisória');
+    if (!pediuTroca) erros.push('não pediu troca de senha no primeiro acesso');
+  }
+  if (pediuTroca) {
+    // senhas diferentes: precisa recusar sem chamar o servidor
+    w.document.querySelector('#form-senha [name=atual]').value = SENHA_INICIAL;
+    w.document.querySelector('#form-senha [name=nova]').value = SENHA_NOVA;
+    w.document.querySelector('#form-senha [name=repetir]').value = 'outra-coisa';
+    w.document.getElementById('form-senha').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+    await esperar(300);
+    const recusou = /não são iguais/.test(w.document.getElementById('msg-senha')?.textContent || '');
+    console.log((recusou ? 'ok    ' : 'FALHA ') + 'recusa quando as duas senhas novas diferem');
+    if (!recusou) erros.push('aceitou senhas novas diferentes');
+
+    w.document.querySelector('#form-senha [name=repetir]').value = SENHA_NOVA;
+    w.document.getElementById('form-senha').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+    await esperar(1500);
+  }
+
   const entrou = !!w.document.getElementById('menu') && !w.document.getElementById('form-login');
   console.log((entrou ? 'ok    ' : 'FALHA ') + 'entrou no sistema após o login (sem cookie e sem storage)');
   if (!entrou) { erros.push('login não entrou: ' + (w.document.getElementById('msg')?.textContent || '')); }
