@@ -142,7 +142,13 @@ async function modalNovoRelatorio(pacienteId) {
              <button class="btn btn-primario" id="gerar">Gerar documento</button>`,
     aoAbrir: async (f) => {
       const carregar = async () => {
-        const base = await api.get('/api/relatorios/base/' + f.querySelector('#r-paciente').value,
+        const escolhido = f.querySelector('#r-paciente').value;
+        if (!escolhido) {
+          f.querySelector('#base-info').innerHTML =
+            'Nenhum paciente cadastrado ainda. Cadastre o paciente e registre os atendimentos para gerar um relatório.';
+          return;
+        }
+        const base = await api.get('/api/relatorios/base/' + escolhido,
           { de: f.querySelector('#r-de').value, ate: f.querySelector('#r-ate').value });
         f.querySelector('#base-info').innerHTML =
           `No período: <b>${base.sessoes_realizadas}</b> sessões realizadas, <b>${base.registros}</b> com diário registrado, <b>${base.faltas}</b> falta(s).

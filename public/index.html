@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PsicoAprender — Espaço de Aprendizagem</title>
-<meta name="description" content="Espaço de aprendizagem em Brasília: psicopedagogia clínica, avaliação, neuropsicopedagogia, educação precoce, musicoterapia e orientação às famílias.">
+<meta name="description" content="Espaço de aprendizagem em Taguatinga/DF: psicopedagogia, neuropsicopedagogia, musicoterapia, musicalização, fonoaudiologia, reforço escolar e avaliação para crianças a partir de 2 anos.">
 <link rel="icon" href="/assets/marca.png">
 <style>
 :root{
   --creme:#f5f3ec; --creme-2:#fbfaf5; --tinta:#2a2630; --tinta-2:#524d5c; --tinta-3:#857f8c;
-  --roxo:#6f5493; --roxo-escuro:#5c4479; --roxo-claro:#f1ecf7;
+  --roxo:#6f5493; --roxo-escuro:#5c4479; --roxo-claro:#f1ecf7; --roxo-borda:#ddd1ec;
   --verde:#a9cfa4; --verde-fundo:#dcebd6; --verde-texto:#5f8a63;
-  --amarelo:#e8b93f; --rosa:#f2a3ae; --linha:#e6e2d7;
+  --amarelo:#e8b93f; --rosa:#f2a3ae; --linha:#e6e2d7; --zap:#25a366;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:"Inter","Segoe UI",-apple-system,BlinkMacSystemFont,Arial,sans-serif;color:var(--tinta);background:var(--creme);line-height:1.62;-webkit-font-smoothing:antialiased}
@@ -21,53 +21,84 @@ p{margin:0 0 14px}
 img{max-width:100%}
 .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
 
-.topo{position:sticky;top:0;z-index:20;background:rgba(245,243,236,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--linha)}
-.topo .wrap{display:flex;align-items:center;gap:26px;height:78px}
+/* ---------- topo e abas ---------- */
+.topo{position:sticky;top:0;z-index:20;background:rgba(245,243,236,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--linha)}
+.topo .wrap{display:flex;align-items:center;gap:20px;height:78px}
 .marca{display:flex;align-items:center;gap:11px}
 .marca img{width:46px;height:46px;border-radius:10px;object-fit:cover}
 .marca-nome{font-size:18px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 .marca-nome span{color:var(--roxo)}
 .marca-sub{font-size:11.5px;color:var(--verde-texto);letter-spacing:.02em}
-nav.menu{margin-left:auto;display:flex;gap:4px;font-size:14.5px;color:var(--tinta-2)}
-nav.menu .aba{padding:9px 15px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:none;font:inherit;color:inherit;white-space:nowrap}
+nav.menu{margin-left:auto;display:flex;gap:2px;font-size:14px;color:var(--tinta-2)}
+nav.menu .aba{padding:9px 12px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:none;font:inherit;color:inherit;white-space:nowrap}
 nav.menu .aba:hover{color:var(--roxo);background:var(--roxo-claro)}
 nav.menu .aba.ativa{color:var(--roxo);background:#fff;border-color:var(--linha);font-weight:600}
-.abas-mobile{display:none;gap:6px;overflow-x:auto;padding:10px 24px;border-bottom:1px solid var(--linha);background:var(--creme-2);-webkit-overflow-scrolling:touch}
+.abas-mobile{display:none;gap:6px;overflow-x:auto;padding:10px 24px;border-bottom:1px solid var(--linha);background:var(--creme-2)}
 .abas-mobile::-webkit-scrollbar{display:none}
-.abas-mobile .aba{flex:none;padding:9px 15px;border-radius:8px;border:1px solid var(--linha);background:#fff;font:inherit;font-size:14px;color:var(--tinta-2);cursor:pointer;white-space:nowrap}
+.abas-mobile .aba{flex:none;padding:10px 15px;border-radius:8px;border:1px solid var(--linha);background:#fff;font:inherit;font-size:14px;color:var(--tinta-2);cursor:pointer;white-space:nowrap}
 .abas-mobile .aba.ativa{background:var(--roxo);border-color:var(--roxo);color:#fff;font-weight:600}
 .painel-aba{display:none}
 .painel-aba.ativo{display:block;animation:entra .18s ease-out}
 @keyframes entra{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:8px;border:1px solid var(--roxo);background:var(--roxo);color:#fff;font-size:14.5px;font-weight:500;cursor:pointer}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 22px;border-radius:8px;border:1px solid var(--roxo);background:var(--roxo);color:#fff;font-size:14.5px;font-weight:500;cursor:pointer}
 .btn.linha{background:transparent;color:var(--roxo)}
 .btn.clara{background:#fff;color:var(--roxo);border-color:#fff}
+.btn.zap{background:var(--zap);border-color:var(--zap);color:#fff}
 .btn:hover{opacity:.93}
+.btn.pequeno{height:40px;padding:0 16px;font-size:13.5px}
 
-.hero{padding:70px 0 60px;position:relative;overflow:hidden}
+/* ---------- hero ---------- */
+.hero{padding:64px 0 56px;position:relative;overflow:hidden}
 .hero::before{content:"";position:absolute;right:-140px;top:-120px;width:620px;height:620px;background:var(--verde-fundo);border-radius:48% 52% 60% 40%/50% 45% 55% 50%;z-index:0}
-.hero-grade{display:grid;grid-template-columns:1.02fr .98fr;gap:50px;align-items:center;position:relative;z-index:1}
+.hero-grade{display:grid;grid-template-columns:1.05fr .95fr;gap:46px;align-items:center;position:relative;z-index:1}
 .selo{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--verde-texto);background:#fff;border:1px solid var(--linha);border-radius:20px;padding:6px 14px;margin-bottom:20px}
-.hero h1{font-size:41px;line-height:1.14;margin-bottom:16px}
+.hero h1{font-size:38px;line-height:1.16;margin-bottom:16px}
 .hero h1 em{font-style:normal;color:var(--roxo)}
 .hero p{font-size:16.5px;color:var(--tinta-2);max-width:520px}
 .hero-acoes{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
 .hero-logo{display:flex;justify-content:center}
-.hero-logo img{max-width:400px;filter:drop-shadow(0 12px 30px rgba(111,84,147,.12))}
+.hero-logo img{max-width:380px;filter:drop-shadow(0 12px 30px rgba(111,84,147,.12))}
+.pilulas{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px}
+.pilula{font-size:12.5px;background:#fff;border:1px solid var(--linha);border-radius:20px;padding:6px 13px;color:var(--tinta-2)}
 
+/* ---------- blocos ---------- */
 section.bloco{padding:56px 0}
 .titulo-secao{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--verde-texto);margin-bottom:10px;font-weight:700}
-.bloco h2{font-size:28px;margin-bottom:16px;max-width:680px}
-.bloco .intro{color:var(--tinta-2);max-width:680px;font-size:15.5px}
-.grade-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:34px}
+.bloco h2{font-size:28px;margin-bottom:16px;max-width:700px}
+.bloco .intro{color:var(--tinta-2);max-width:700px;font-size:15.5px}
+.grade-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:32px}
 .grade-2{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
-.cartao{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:24px}
+.cartao{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:22px;display:flex;flex-direction:column}
 .cartao h3{font-size:16px;margin-bottom:8px}
-.cartao p{font-size:14.5px;color:var(--tinta-2);margin:0}
+.cartao p{font-size:14.5px;color:var(--tinta-2);margin:0 0 14px}
 .cartao .marcador{width:34px;height:3px;border-radius:3px;background:var(--verde);margin-bottom:14px}
+.cartao .rodape-cartao{margin-top:auto}
+.link-zap{color:var(--zap);font-size:13.5px;font-weight:600}
 
-/* equipe — mesmo cartão usado na tela Profissionais do sistema */
-.equipe{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:34px}
+/* ---------- valores ---------- */
+.precos{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:30px}
+.preco{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:24px;display:flex;flex-direction:column}
+.preco.destaque{border-color:var(--roxo-borda);box-shadow:0 8px 26px rgba(111,84,147,.08)}
+.preco .etiqueta{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--roxo);font-weight:700;margin-bottom:8px}
+.preco h3{font-size:17px;margin-bottom:14px}
+.preco ul{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:9px}
+.preco li{display:flex;justify-content:space-between;gap:14px;font-size:14.5px;color:var(--tinta-2);border-bottom:1px dashed var(--linha);padding-bottom:8px}
+.preco li b{color:var(--tinta);font-size:15.5px;white-space:nowrap}
+.preco .nota{font-size:12.5px;color:var(--tinta-3);margin-bottom:16px}
+.preco .rodape-cartao{margin-top:auto}
+
+/* ---------- tabela de áreas ---------- */
+.tabela-areas{width:100%;border-collapse:collapse;margin-top:28px;background:#fff;border:1px solid var(--linha);border-radius:10px;overflow:hidden}
+.tabela-areas th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-3);padding:13px 16px;background:var(--creme-2);border-bottom:1px solid var(--linha);font-weight:700}
+.tabela-areas td{padding:14px 16px;border-bottom:1px solid var(--linha);font-size:14.5px;color:var(--tinta-2);vertical-align:top}
+.tabela-areas tr:last-child td{border-bottom:0}
+.tabela-areas td:first-child{font-weight:600;color:var(--tinta);white-space:nowrap}
+.nomes{display:flex;gap:6px;flex-wrap:wrap}
+.nome-tag{background:var(--roxo-claro);color:var(--roxo);border:1px solid var(--roxo-borda);border-radius:20px;padding:2px 10px;font-size:12.5px;font-weight:600}
+
+/* ---------- equipe ---------- */
+.equipe{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:30px}
 .pessoa{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:20px;display:flex;gap:14px;align-items:flex-start}
 .pessoa img{width:72px;height:72px;flex:none;border-radius:50%;object-fit:cover;object-position:center 22%}
 .pessoa .dados{min-width:0;flex:1}
@@ -76,41 +107,63 @@ section.bloco{padding:56px 0}
 .pessoa .formacao{font-size:13px;color:var(--tinta-3);margin:0}
 .pessoa .especialidades{font-size:13px;color:var(--tinta-3);line-height:1.45;margin:6px 0 0}
 
-.passos{display:grid;gap:22px;margin-top:30px}
+/* ---------- passos e diferenciais ---------- */
+.passos{display:grid;gap:20px;margin-top:28px}
 .passo{display:flex;gap:16px;align-items:flex-start}
 .passo .n{width:32px;height:32px;border-radius:50%;background:var(--roxo-claro);color:var(--roxo);display:grid;place-items:center;font-size:14px;font-weight:700;flex:none}
 .passo h3{font-size:15.5px;margin-bottom:3px}
 .passo p{font-size:14.5px;color:var(--tinta-2);margin:0}
 
-.contato{background:var(--roxo);color:#fff;border-radius:12px;padding:38px;display:flex;gap:30px;align-items:center;flex-wrap:wrap}
-.contato h2{font-size:25px;margin-bottom:8px}
+/* ---------- perguntas ---------- */
+.faq{margin-top:28px;display:grid;gap:10px}
+details{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:0 18px}
+details[open]{border-color:var(--roxo-borda)}
+summary{cursor:pointer;padding:16px 0;font-size:15px;font-weight:600;list-style:none;display:flex;align-items:center;gap:12px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";margin-left:auto;color:var(--roxo);font-size:20px;font-weight:400;line-height:1}
+details[open] summary::after{content:"–"}
+details p{font-size:14.5px;color:var(--tinta-2);margin:0 0 16px}
+
+/* ---------- contato / localização ---------- */
+.contato{background:var(--roxo);color:#fff;border-radius:12px;padding:36px;display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.contato h2{font-size:24px;margin-bottom:8px}
 .contato p{color:rgba(255,255,255,.82);margin:0;max-width:470px}
 .infos{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;font-size:14.5px;color:var(--tinta-2);margin-top:26px}
-.rodape{padding:32px 0;font-size:13.5px;color:var(--tinta-3);display:flex;gap:16px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--linha);margin-top:60px}
-.rodape img{width:34px;height:34px;border-radius:8px;object-fit:cover}
+.infos strong{display:block;color:var(--tinta);margin-bottom:2px}
 .mapa-local{border:1px solid var(--linha);border-radius:10px;overflow:hidden;background:#fff}
-.mapa-local .desenho{height:250px;background:
+.mapa-local .desenho{height:230px;background:
   repeating-linear-gradient(90deg,#eef2ea 0 1px,transparent 1px 46px),
   repeating-linear-gradient(0deg,#eef2ea 0 1px,transparent 1px 46px),var(--verde-fundo);
-  display:grid;place-items:center;position:relative}
+  display:grid;place-items:center}
 .pino{display:flex;flex-direction:column;align-items:center;gap:6px}
-.pino .bolha{background:#fff;border:1px solid var(--linha);border-radius:8px;padding:8px 14px;font-size:13.5px;font-weight:600;box-shadow:0 4px 14px rgba(42,38,48,.08)}
+.pino .bolha{background:#fff;border:1px solid var(--linha);border-radius:8px;padding:8px 14px;font-size:13.5px;font-weight:600;box-shadow:0 4px 14px rgba(42,38,48,.08);text-align:center}
 .mapa-local .rodape-mapa{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px 18px;border-top:1px solid var(--linha);font-size:14px;color:var(--tinta-2)}
-.lista-local{display:grid;gap:14px;margin-top:4px}
+.lista-local{display:grid;gap:14px}
 .lista-local .item{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;color:var(--tinta-2)}
 .lista-local .item strong{display:block;color:var(--tinta);font-size:14px}
 .lista-local .ic{width:32px;height:32px;flex:none;border-radius:8px;background:var(--roxo-claro);color:var(--roxo);display:grid;place-items:center}
-.zap{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:#25a366;color:#fff;display:grid;place-items:center;box-shadow:0 8px 22px rgba(37,163,102,.35);z-index:30}
+
+.rodape{padding:30px 0;font-size:13.5px;color:var(--tinta-3);display:flex;gap:16px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--linha);margin-top:50px}
+.rodape img{width:34px;height:34px;border-radius:8px;object-fit:cover}
+.flutuante{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:var(--zap);color:#fff;display:grid;place-items:center;box-shadow:0 8px 22px rgba(37,163,102,.35);z-index:30}
+
 @media(max-width:900px){
-  .hero-grade,.grade-3,.grade-2,.infos{grid-template-columns:1fr;gap:28px}
-  .equipe{grid-template-columns:1fr;gap:16px}
+  .hero-grade,.grade-3,.grade-2,.precos,.equipe,.infos{grid-template-columns:1fr;gap:22px}
   nav.menu{display:none}
   .abas-mobile{display:flex}
-  .hero h1{font-size:31px}
-  .hero{padding:44px 0}
-  section.bloco{padding:46px 0}
+  .hero h1{font-size:29px}
+  .hero{padding:38px 0}
+  section.bloco{padding:38px 0}
   .hero-logo{order:-1}
-  .hero-logo img{max-width:250px}
+  .hero-logo img{max-width:230px}
+  .wrap{padding:0 16px}
+  .contato{padding:24px}
+  .tabela-areas,.tabela-areas tbody,.tabela-areas tr,.tabela-areas td{display:block;width:100%}
+  .tabela-areas thead{display:none}
+  .tabela-areas tr{border-bottom:1px solid var(--linha);padding:6px 0}
+  .tabela-areas td{border:0;padding:5px 16px}
+  .tabela-areas td:first-child{padding-top:14px;font-size:15px}
+  .tabela-areas tr:last-child{border-bottom:0}
 }
 </style>
 </head>
@@ -125,214 +178,377 @@ section.bloco{padding:56px 0}
     <nav class="menu" id="abas">
       <button class="aba ativa" data-aba="inicio">Início</button>
       <button class="aba" data-aba="sobre">Sobre nós</button>
-      <button class="aba" data-aba="equipe">Profissionais</button>
       <button class="aba" data-aba="servicos">Serviços</button>
+      <button class="aba" data-aba="valores">Valores</button>
+      <button class="aba" data-aba="equipe">Profissionais</button>
       <button class="aba" data-aba="como-funciona">Como funciona</button>
-      <button class="aba" data-aba="contato">Contato</button>
-      <button class="aba" data-aba="localizacao">Localização</button>
+      <button class="aba" data-aba="duvidas">Dúvidas</button>
+      <button class="aba" data-aba="localizacao">Contato</button>
     </nav>
-    <a class="btn linha" href="/sistema.html">Área da profissional</a>
+    <a class="btn linha pequeno" href="/sistema.html">Área da profissional</a>
   </div>
   <div class="abas-mobile" id="abas-mobile">
     <button class="aba ativa" data-aba="inicio">Início</button>
     <button class="aba" data-aba="sobre">Sobre nós</button>
-    <button class="aba" data-aba="equipe">Profissionais</button>
     <button class="aba" data-aba="servicos">Serviços</button>
+    <button class="aba" data-aba="valores">Valores</button>
+    <button class="aba" data-aba="equipe">Profissionais</button>
     <button class="aba" data-aba="como-funciona">Como funciona</button>
-    <button class="aba" data-aba="contato">Contato</button>
-    <button class="aba" data-aba="localizacao">Localização</button>
+    <button class="aba" data-aba="duvidas">Dúvidas</button>
+    <button class="aba" data-aba="localizacao">Contato</button>
   </div>
 </header>
 
+<!-- ================= INÍCIO ================= -->
 <section class="hero painel-aba ativo" id="p-inicio">
   <div class="wrap hero-grade">
     <div>
-      <div class="selo">Psicopedagogia e desenvolvimento infantil · Brasília/DF</div>
-      <h1>Desenvolvimento, aprendizagem e <em>acolhimento</em>.</h1>
-      <p>A PsicoAprender é um espaço de aprendizagem que acompanha crianças em suas dificuldades escolares com escuta atenta, avaliação criteriosa e um plano de trabalho construído junto com a família e a escola.</p>
+      <div class="selo">Espaço acolhedor e humanizado · Taguatinga/DF</div>
+      <h1>Aprender também é um caminho de cuidado, afeto e <em>desenvolvimento</em>.</h1>
+      <p>Um espaço acolhedor para apoiar crianças em seus processos de aprendizagem, desenvolvimento e crescimento, com escuta humanizada e estratégias personalizadas para cada criança.</p>
       <div class="hero-acoes">
-        <a class="btn" href="https://wa.me/5561999990000" target="_blank" rel="noopener">Agendar uma conversa</a>
-        <a class="btn linha" href="#equipe">Conheça as profissionais</a>
-        <a class="btn linha" href="#localizacao">Localização</a>
+        <a class="btn zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp</a>
+        <a class="btn linha" href="#servicos">Conhecer serviços</a>
+      </div>
+      <div class="pilulas">
+        <span class="pilula">Atendimento individualizado</span>
+        <span class="pilula">Desenvolvimento infantil</span>
+        <span class="pilula">Apoio à aprendizagem</span>
+        <span class="pilula">A partir de 2 anos</span>
       </div>
     </div>
     <div class="hero-logo"><img src="/assets/logo.png" alt="PsicoAprender — Espaço de Aprendizagem"></div>
   </div>
 </section>
 
+<!-- ================= SOBRE ================= -->
 <section class="bloco painel-aba" id="p-sobre">
-  <div class="wrap grade-2">
-    <div>
-      <div class="titulo-secao">Sobre nós</div>
-      <h2>Um espaço pensado para a criança e para quem cuida dela.</h2>
-    </div>
-    <div>
-      <p>A PsicoAprender reúne profissionais de psicopedagogia, neuropsicopedagogia, educação precoce e musicoterapia em um mesmo espaço, com duas salas de atendimento e agenda organizada para que cada criança tenha o seu horário e a sua rotina preservados.</p>
-      <p>Trabalhamos com acompanhamento próximo: cada sessão é registrada, os objetivos são revisados periodicamente e as famílias recebem devolutivas claras sobre a evolução.</p>
-      <p>Nosso compromisso é com a aprendizagem construída no ritmo de cada criança — sem promessas, com método e com afeto.</p>
-    </div>
-  </div>
-</section>
-
-<section class="bloco painel-aba" id="p-equipe">
   <div class="wrap">
-    <div class="titulo-secao">Profissionais</div>
-    <h2>Quem atende na PsicoAprender</h2>
-    <p class="intro">Uma equipe de pedagogas e especialistas em aprendizagem, cada uma com sua área de atuação.</p>
-    <div class="equipe">
+    <div class="grade-2">
+      <div>
+        <div class="titulo-secao">Sobre a PsicoAprender</div>
+        <h2>Um espaço pensado para acolher, desenvolver e fortalecer aprendizagens.</h2>
+      </div>
+      <div>
+        <p>A PsicoAprender Espaço de Aprendizagem é voltada ao desenvolvimento, aprendizagem e acolhimento infantil, oferecendo acompanhamento especializado para crianças e apoio próximo às famílias.</p>
+        <p>Cada atendimento considera a história, as necessidades e as potencialidades da criança, com escuta humanizada, cuidado e estratégias personalizadas para favorecer seu crescimento cognitivo, emocional e escolar.</p>
+      </div>
+    </div>
 
-      <article class="pessoa">
-        <img src="/assets/equipe/vanessa.jpg" alt="Vanessa Gomes">
-        <div class="dados">
-          <h3>Vanessa Gomes</h3>
-          <div class="cargo">Psicopedagoga clínica e institucional</div>
-          <div class="formacao">Formação em Pedagogia</div>
-          <p class="especialidades">Especialista em psicopedagogia clínica e institucional. Pós-graduada em AEE — Atendimento Educacional Especializado.</p>
-        </div>
-      </article>
-
-      <article class="pessoa">
-        <img src="/assets/equipe/helen.jpg" alt="Helen Cristina">
-        <div class="dados">
-          <h3>Helen Cristina</h3>
-          <div class="cargo">Psicopedagoga clínica e institucional</div>
-          <div class="formacao">Formação em Pedagogia — UnB</div>
-          <p class="especialidades">Especialista em transtornos e dificuldades de aprendizagem. Pós-graduanda em ABA, dislexia, distúrbios da leitura e escrita e síndrome de Down.</p>
-        </div>
-      </article>
-
-      <article class="pessoa">
-        <img src="/assets/equipe/patricia.jpg" alt="Patrícia Monteiro">
-        <div class="dados">
-          <h3>Patrícia Monteiro</h3>
-          <div class="cargo">Psicopedagoga clínica e institucional</div>
-          <div class="formacao">Formação em Pedagogia</div>
-          <p class="especialidades">Especialista em psicopedagogia clínica e institucional. Pós-graduanda em ABA e alfabetização de crianças típicas e atípicas.</p>
-        </div>
-      </article>
-
-      <article class="pessoa">
-        <img src="/assets/equipe/jennifer.jpg" alt="Jennifer">
-        <div class="dados">
-          <h3>Jennifer</h3>
-          <div class="cargo">Musicoterapeuta e psicopedagoga</div>
-          <div class="formacao">Formação em Pedagogia — IESB</div>
-          <p class="especialidades">Especialista em musicoterapia, musicalização infantil e ABA. Pós-graduanda em psicopedagogia clínica e institucional e educação especial.</p>
-        </div>
-      </article>
-
-      <article class="pessoa">
-        <img src="/assets/equipe/josyllene.jpg" alt="Josyllene Dias">
-        <div class="dados">
-          <h3>Josyllene Dias</h3>
-          <div class="cargo">Psicopedagoga clínica e institucional</div>
-          <div class="formacao">Formação em Pedagogia — UnB</div>
-          <p class="especialidades">Especialista em educação precoce, alfabetização e letramento. Pós-graduada em psicopedagogia clínica e institucional e orientação educacional.</p>
-        </div>
-      </article>
-
-      <article class="pessoa">
-        <img src="/assets/equipe/malu.jpg" alt="Malu Nogueira">
-        <div class="dados">
-          <h3>Malu Nogueira</h3>
-          <div class="cargo">Neuropsicopedagoga</div>
-          <div class="formacao">Formação em Letras — UnB e Pedagogia — IESB</div>
-          <p class="especialidades">Especialista em psicopedagogia clínica e institucional, neuropsicopedagogia, alfabetização e letramento. Pós-graduanda em ABA, síndrome de Down e autismo.</p>
-        </div>
-      </article>
-
+    <div style="margin-top:44px">
+      <div class="titulo-secao">Diferenciais</div>
+      <h2>Cuidado em cada detalhe</h2>
+      <div class="grade-3">
+        <div class="cartao"><div class="marcador"></div><h3>Atendimento individualizado</h3><p>Cada criança é acompanhada considerando suas necessidades e seu ritmo.</p></div>
+        <div class="cartao"><div class="marcador"></div><h3>Ambiente acolhedor</h3><p>Um espaço pensado para transmitir segurança, leveza e confiança.</p></div>
+        <div class="cartao"><div class="marcador"></div><h3>Escuta humanizada</h3><p>A família é ouvida com cuidado desde o primeiro contato.</p></div>
+        <div class="cartao"><div class="marcador"></div><h3>Acompanhamento da família</h3><p>Devolutivas e orientações para apoiar o desenvolvimento também em casa.</p></div>
+        <div class="cartao"><div class="marcador"></div><h3>Estratégias personalizadas</h3><p>Intervenções planejadas de acordo com a realidade de cada criança.</p></div>
+        <div class="cartao"><div class="marcador"></div><h3>Desenvolvimento com afeto</h3><p>Aprender com acolhimento, vínculo e respeito à infância.</p></div>
+      </div>
     </div>
   </div>
 </section>
 
+<!-- ================= SERVIÇOS ================= -->
 <section class="bloco painel-aba" id="p-servicos">
   <div class="wrap">
-    <div class="titulo-secao">Serviços</div>
-    <h2>O que oferecemos</h2>
-    <p class="intro">Cada acompanhamento começa por uma escuta da família e da escola. A partir daí, definimos o formato mais adequado.</p>
+    <div class="titulo-secao">Aprendizagem e desenvolvimento</div>
+    <h2>Nossos serviços</h2>
+    <p class="intro">Serviços pensados para acompanhar a criança de forma individualizada, respeitando seu ritmo, suas necessidades e suas potencialidades.</p>
     <div class="grade-3">
-      <div class="cartao"><div class="marcador"></div><h3>Psicopedagogia clínica</h3><p>Acompanhamento semanal focado em leitura, escrita, raciocínio lógico, organização e autonomia nos estudos.</p></div>
-      <div class="cartao"><div class="marcador"></div><h3>Avaliação psicopedagógica</h3><p>Processo avaliativo com sessões estruturadas, análise do material escolar e devolutiva por escrito.</p></div>
-      <div class="cartao"><div class="marcador"></div><h3>Neuropsicopedagogia</h3><p>Intervenção voltada às funções cognitivas: atenção, memória de trabalho e funções executivas.</p></div>
-      <div class="cartao"><div class="marcador"></div><h3>Educação precoce</h3><p>Estimulação para os primeiros anos, com foco em linguagem, interação e desenvolvimento global.</p></div>
-      <div class="cartao"><div class="marcador"></div><h3>Musicoterapia e musicalização</h3><p>A música como recurso para comunicação, atenção compartilhada, ritmo e regulação.</p></div>
-      <div class="cartao"><div class="marcador"></div><h3>Orientação aos responsáveis</h3><p>Encontros de devolutiva, orientações para a rotina em casa e articulação com a escola.</p></div>
+      <div class="cartao"><div class="marcador"></div><h3>Psicopedagogia</h3>
+        <p>Avaliação e intervenção para compreender dificuldades escolares e favorecer o desenvolvimento cognitivo e emocional.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Neuropsicopedagogia</h3>
+        <p>Atendimento voltado ao desenvolvimento, aprendizagem e funções cognitivas.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Musicalização</h3>
+        <p>Atividades educativas para percepção rítmica, coordenação motora, apreciação musical e aprendizagem.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Musicoterapia</h3>
+        <p>Prática terapêutica com sons, ritmos e músicas para estimular comunicação, expressão, cognição e emoções.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Fonoaudiologia</h3>
+        <p>Avalia, previne e trata dificuldades relacionadas à fala, linguagem, comunicação, voz e deglutição.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Reforço e acompanhamento escolar</h3>
+        <p>Apoio contínuo em tarefas e conteúdos escolares, estimulando organização, autonomia e progresso.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Psicologia</h3>
+        <p>Atendimento mediante disponibilidade da agenda, com foco no acolhimento e desenvolvimento infantil.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
+      <div class="cartao"><div class="marcador"></div><h3>Avaliação</h3>
+        <p>Avaliações conforme demanda da criança e orientação inicial para a família.</p>
+        <div class="rodape-cartao"><a class="link-zap" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Falar no WhatsApp →</a></div></div>
     </div>
   </div>
 </section>
 
+<!-- ================= VALORES ================= -->
+<section class="bloco painel-aba" id="p-valores">
+  <div class="wrap">
+    <div class="titulo-secao">Serviços disponíveis</div>
+    <h2>Valores dos serviços</h2>
+    <p class="intro">Opções de sessão avulsa, quinzenal e mensalidade. Para avaliações e psicopedagogia, consulte a equipe pelo WhatsApp.</p>
+    <div class="precos">
+
+      <div class="preco">
+        <div class="etiqueta">Avaliação e intervenção</div>
+        <h3>Psicopedagogia</h3>
+        <ul>
+          <li><span>Avaliação</span><b>Consultar</b></li>
+          <li><span>Intervenção</span><b>Consultar</b></li>
+        </ul>
+        <div class="nota">Valores mediante consulta.</div>
+        <div class="rodape-cartao"><a class="btn zap pequeno" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Agendar pelo WhatsApp</a></div>
+      </div>
+
+      <div class="preco destaque">
+        <div class="etiqueta">Plano mensal em destaque</div>
+        <h3>Aulas particulares / Reforço escolar</h3>
+        <ul>
+          <li><span>Sessão avulsa</span><b>R$ 80,00</b></li>
+          <li><span>Mensalidade</span><b>R$ 300,00</b></li>
+        </ul>
+        <div class="nota">A mensalidade corresponde a 4 sessões por mês.</div>
+        <div class="rodape-cartao"><a class="btn zap pequeno" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Agendar pelo WhatsApp</a></div>
+      </div>
+
+      <div class="preco destaque">
+        <div class="etiqueta">Plano mensal em destaque</div>
+        <h3>Musicoterapia</h3>
+        <ul>
+          <li><span>Sessão avulsa</span><b>R$ 180,00</b></li>
+          <li><span>Quinzenal</span><b>R$ 250,00</b></li>
+          <li><span>Mensalidade</span><b>R$ 500,00</b></li>
+        </ul>
+        <div class="nota">Mensalidade: 4 sessões por mês. Quinzenal: 2 sessões por mês.</div>
+        <div class="rodape-cartao"><a class="btn zap pequeno" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Agendar pelo WhatsApp</a></div>
+      </div>
+
+      <div class="preco destaque">
+        <div class="etiqueta">Plano mensal em destaque</div>
+        <h3>Musicalização</h3>
+        <ul>
+          <li><span>Sessão avulsa</span><b>R$ 100,00</b></li>
+          <li><span>Quinzenal</span><b>R$ 150,00</b></li>
+          <li><span>Mensalidade</span><b>R$ 300,00</b></li>
+        </ul>
+        <div class="nota">Mensalidade: 4 sessões por mês. Quinzenal: 2 sessões por mês.</div>
+        <div class="rodape-cartao"><a class="btn zap pequeno" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Agendar pelo WhatsApp</a></div>
+      </div>
+
+      <div class="preco">
+        <div class="etiqueta">Demandas atendidas</div>
+        <h3>Fonoaudiologia</h3>
+        <ul>
+          <li><span>Sessão avulsa</span><b>R$ 100,00</b></li>
+          <li><span>Mensalidade</span><b>R$ 320,00</b></li>
+        </ul>
+        <div class="nota">TPAC, motricidade orofacial, leitura e escrita, trocas na fala.</div>
+        <div class="rodape-cartao"><a class="btn zap pequeno" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Agendar pelo WhatsApp</a></div>
+      </div>
+
+      <div class="preco">
+        <div class="etiqueta">Avaliação</div>
+        <h3>Avaliação</h3>
+        <ul>
+          <li><span>Valores</span><b>Via WhatsApp</b></li>
+        </ul>
+        <div class="nota">Entre em contato para verificar valores e disponibilidade.</div>
+        <div class="rodape-cartao"><a class="btn zap pequeno" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Agendar pelo WhatsApp</a></div>
+      </div>
+
+    </div>
+    <p class="intro" style="margin-top:22px;font-size:14px;color:var(--tinta-3)">
+      Atendimentos realizados apenas de forma particular — não trabalhamos com planos de saúde.
+    </p>
+  </div>
+</section>
+
+<!-- ================= PROFISSIONAIS ================= -->
+<section class="bloco painel-aba" id="p-equipe">
+  <div class="wrap">
+    <div class="titulo-secao">Equipe</div>
+    <h2>Profissionais e áreas de atuação</h2>
+    <p class="intro">Confira as áreas atendidas e os profissionais disponíveis em cada especialidade.</p>
+
+    <table class="tabela-areas">
+      <thead><tr><th>Área de atuação</th><th>Profissionais</th><th>Observações</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Psicopedagogia</td>
+          <td><div class="nomes"><span class="nome-tag">Vanessa</span><span class="nome-tag">Josy</span><span class="nome-tag">Patrícia</span><span class="nome-tag">Helen</span><span class="nome-tag">Malu</span></div></td>
+          <td>Josy realiza atendimento para crianças entre 2 e 5 anos.</td>
+        </tr>
+        <tr>
+          <td>Neuropsicopedagogia</td>
+          <td><div class="nomes"><span class="nome-tag">Malu</span><span class="nome-tag">Helen</span></div></td>
+          <td>Atendimento voltado ao desenvolvimento, aprendizagem e funções cognitivas.</td>
+        </tr>
+        <tr>
+          <td>Musicalização / Musicoterapia</td>
+          <td><div class="nomes"><span class="nome-tag">Jenni</span></div></td>
+          <td>Atividades musicais voltadas ao desenvolvimento infantil, expressão, aprendizagem e comunicação.</td>
+        </tr>
+        <tr>
+          <td>Fonoaudiologia</td>
+          <td><div class="nomes"><span class="nome-tag">Verificar disponibilidade</span></div></td>
+          <td>Atendimento mediante disponibilidade da agenda.</td>
+        </tr>
+        <tr>
+          <td>Reforço e acompanhamento escolar</td>
+          <td><div class="nomes"><span class="nome-tag">Helen</span><span class="nome-tag">Patrícia</span><span class="nome-tag">Vanessa</span></div></td>
+          <td>Apoio escolar personalizado conforme a necessidade da criança.</td>
+        </tr>
+        <tr>
+          <td>Psicologia</td>
+          <td><div class="nomes"><span class="nome-tag">Verificar disponibilidade</span></div></td>
+          <td>Atendimento mediante disponibilidade da agenda.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:46px;font-size:22px">Quem atende na PsicoAprender</h2>
+    <div class="equipe">
+      <article class="pessoa">
+        <img src="/assets/equipe/vanessa.jpg" alt="Vanessa Gomes">
+        <div class="dados"><h3>Vanessa Gomes</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia</div>
+          <p class="especialidades">Pós-graduada em AEE — Atendimento Educacional Especializado.</p></div>
+      </article>
+      <article class="pessoa">
+        <img src="/assets/equipe/helen.jpg" alt="Helen Cristina">
+        <div class="dados"><h3>Helen Cristina</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia — UnB</div>
+          <p class="especialidades">Transtornos e dificuldades de aprendizagem. Pós-graduanda em ABA, dislexia, distúrbios da leitura e escrita e síndrome de Down.</p></div>
+      </article>
+      <article class="pessoa">
+        <img src="/assets/equipe/patricia.jpg" alt="Patrícia Monteiro">
+        <div class="dados"><h3>Patrícia Monteiro</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia</div>
+          <p class="especialidades">Pós-graduanda em ABA e alfabetização de crianças típicas e atípicas.</p></div>
+      </article>
+      <article class="pessoa">
+        <img src="/assets/equipe/jennifer.jpg" alt="Jennifer">
+        <div class="dados"><h3>Jennifer (Jenni)</h3>
+          <div class="cargo">Musicoterapeuta e psicopedagoga</div>
+          <div class="formacao">Formação em Pedagogia — IESB</div>
+          <p class="especialidades">Musicoterapia, musicalização infantil e ABA. Pós-graduanda em psicopedagogia clínica e institucional e educação especial.</p></div>
+      </article>
+      <article class="pessoa">
+        <img src="/assets/equipe/josyllene.jpg" alt="Josyllene Dias">
+        <div class="dados"><h3>Josyllene Dias (Josy)</h3>
+          <div class="cargo">Psicopedagoga clínica e institucional</div>
+          <div class="formacao">Formação em Pedagogia — UnB</div>
+          <p class="especialidades">Educação precoce, alfabetização e letramento. Atende crianças entre 2 e 5 anos.</p></div>
+      </article>
+      <article class="pessoa">
+        <img src="/assets/equipe/malu.jpg" alt="Malu Nogueira">
+        <div class="dados"><h3>Malu Nogueira</h3>
+          <div class="cargo">Neuropsicopedagoga</div>
+          <div class="formacao">Formação em Letras — UnB e Pedagogia — IESB</div>
+          <p class="especialidades">Neuropsicopedagogia, alfabetização e letramento. Pós-graduanda em ABA, síndrome de Down e autismo.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= COMO FUNCIONA ================= -->
 <section class="bloco painel-aba" id="p-como-funciona">
   <div class="wrap grade-2">
     <div>
       <div class="titulo-secao">Como funciona</div>
-      <h2>Um caminho simples, do primeiro contato ao acompanhamento.</h2>
-      <p class="intro">Sem burocracia e sem promessas: primeiro entendemos a demanda, depois construímos o plano.</p>
+      <h2>Passo a passo do atendimento</h2>
+      <p class="intro">Do primeiro contato ao acompanhamento contínuo, sem burocracia e com orientação em cada etapa.</p>
+      <a class="btn zap" style="margin-top:18px" href="https://wa.me/5561999214773" target="_blank" rel="noopener">Começar pelo WhatsApp</a>
     </div>
     <div class="passos">
-      <div class="passo"><div class="n">1</div><div><h3>Primeiro contato</h3><p>Conversa por WhatsApp para entender a queixa e verificar horários disponíveis nas nossas duas salas.</p></div></div>
-      <div class="passo"><div class="n">2</div><div><h3>Anamnese com os responsáveis</h3><p>Encontro inicial para conhecer o histórico da criança e as observações da escola.</p></div></div>
-      <div class="passo"><div class="n">3</div><div><h3>Avaliação</h3><p>Sessões de avaliação e devolutiva com o plano de trabalho proposto.</p></div></div>
-      <div class="passo"><div class="n">4</div><div><h3>Acompanhamento</h3><p>Sessões regulares com registro de cada encontro e relatórios periódicos de evolução.</p></div></div>
+      <div class="passo"><div class="n">1</div><div><h3>Entre em contato pelo WhatsApp</h3><p>O primeiro contato é direto com a equipe, sem formulários.</p></div></div>
+      <div class="passo"><div class="n">2</div><div><h3>Conte a necessidade da criança</h3><p>Escutamos a queixa da família e as observações da escola.</p></div></div>
+      <div class="passo"><div class="n">3</div><div><h3>Agende uma conversa inicial</h3><p>Anamnese com os responsáveis para conhecer o histórico de desenvolvimento.</p></div></div>
+      <div class="passo"><div class="n">4</div><div><h3>Receba orientação personalizada</h3><p>Devolutiva com o plano de trabalho adequado ao caso.</p></div></div>
+      <div class="passo"><div class="n">5</div><div><h3>Inicie o acompanhamento</h3><p>Sessões regulares, com registro de cada encontro e devolutivas periódicas.</p></div></div>
     </div>
   </div>
 </section>
 
-<section class="bloco painel-aba" id="p-contato">
+<!-- ================= DÚVIDAS ================= -->
+<section class="bloco painel-aba" id="p-duvidas">
+  <div class="wrap">
+    <div class="titulo-secao">Dúvidas frequentes</div>
+    <h2>Perguntas frequentes</h2>
+    <div class="faq">
+      <details open><summary>Como funciona o primeiro atendimento?</summary>
+        <p>No primeiro encontro é realizada uma anamnese com os responsáveis pela criança. Esse momento é dedicado à compreensão do histórico de desenvolvimento, das dificuldades apresentadas e das principais queixas relatadas pela família, permitindo uma avaliação inicial mais completa.</p></details>
+      <details><summary>A PsicoAprender atende crianças de quais idades?</summary>
+        <p>Atendemos crianças a partir de 2 anos de idade. A faixa etária pode variar de acordo com a especialidade e a disponibilidade de cada profissional.</p></details>
+      <details><summary>O acompanhamento é individual?</summary>
+        <p>Sim. Todos os atendimentos são realizados de forma individualizada, respeitando as dificuldades, características e potencialidades de cada criança.</p></details>
+      <details><summary>Como agendar uma avaliação?</summary>
+        <p>O agendamento pode ser realizado diretamente pelo WhatsApp da PsicoAprender, por meio dos botões disponíveis neste site.</p></details>
+      <details><summary>Os pais recebem orientação durante o acompanhamento?</summary>
+        <p>Sim. As famílias recebem devolutivas periódicas sobre o processo de avaliação e intervenção, além de orientações que contribuem para o desenvolvimento da criança também fora do ambiente terapêutico.</p></details>
+      <details><summary>Quanto tempo dura cada sessão?</summary>
+        <p>As sessões têm duração média entre 40 e 50 minutos, variando de acordo com as necessidades e a resposta de cada criança durante o atendimento. O objetivo é que a sessão tenha aproximadamente 50 minutos sempre que possível. Para crianças menores de 5 anos, os atendimentos costumam ter duração de até 40 minutos, respeitando o tempo de atenção, desenvolvimento e bem-estar da criança.</p></details>
+      <details><summary>A PsicoAprender atende por plano de saúde?</summary>
+        <p>Não. Atualmente os atendimentos são realizados apenas de forma particular. Consulte os valores na aba <b>Valores</b> ou fale com a equipe pelo WhatsApp.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONTATO E LOCALIZAÇÃO ================= -->
+<section class="bloco painel-aba" id="p-localizacao">
   <div class="wrap">
     <div class="contato">
       <div>
-        <h2>Vamos conversar sobre a sua criança?</h2>
-        <p>Atendimento com hora marcada, de segunda a sexta, das 8h às 18h. Responderemos com a atenção que a sua dúvida merece.</p>
+        <h2>Agende uma conversa e conheça o espaço PsicoAprender.</h2>
+        <p>Atendimento somente com horário agendado previamente.</p>
       </div>
       <div style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap">
-        <a class="btn clara" href="https://wa.me/5561999990000" target="_blank" rel="noopener">WhatsApp (61) 99999-0000</a>
-        <a class="btn" style="border-color:rgba(255,255,255,.45);background:transparent" href="https://www.instagram.com/psicoaprenderdf/" target="_blank" rel="noopener">Instagram</a>
+        <a class="btn clara" href="https://wa.me/5561999214773" target="_blank" rel="noopener">WhatsApp (61) 99921-4773</a>
+        <a class="btn" style="border-color:rgba(255,255,255,.45);background:transparent" href="https://www.instagram.com/psicoaprenderdf" target="_blank" rel="noopener">Abrir Instagram</a>
       </div>
     </div>
-    <div class="infos">
-      <div><strong>Telefone e WhatsApp</strong><br>(61) 99999-0000<br>Retorno em horário comercial</div>
-      <div><strong>E-mail</strong><br>contato@psicoaprender.com.br</div>
-      <div><strong>Instagram</strong><br><a href="https://www.instagram.com/psicoaprenderdf/" target="_blank" rel="noopener" style="color:var(--roxo)">@psicoaprenderdf</a></div>
-    </div>
-  </div>
-</section>
 
-<section class="bloco painel-aba" id="p-localizacao">
-  <div class="wrap">
-    <div class="titulo-secao">Localização</div>
-    <h2>Onde ficamos</h2>
-    <p class="intro">Nosso espaço tem duas salas de atendimento preparadas para crianças, sala de espera para os responsáveis e acesso facilitado.</p>
-    <div class="grade-2" style="margin-top:30px">
+    <div class="grade-2" style="margin-top:34px">
       <div class="mapa-local">
         <div class="desenho">
           <div class="pino">
-            <div class="bolha">PsicoAprender · Brasília/DF</div>
+            <div class="bolha">PsicoAprender<br>QNE 15, Lote 25, Sala 106</div>
             <svg width="34" height="34" viewBox="0 0 24 24" fill="#6f5493"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>
           </div>
         </div>
         <div class="rodape-mapa">
-          <span>Endereço completo enviado na confirmação do agendamento.</span>
-          <a class="btn" style="margin-left:auto;height:40px" href="https://www.google.com/maps/search/?api=1&query=Bras%C3%ADlia+DF" target="_blank" rel="noopener">Abrir no Google Maps</a>
+          <span>Taguatinga Norte · Brasília/DF</span>
+          <a class="btn pequeno" style="margin-left:auto" href="https://www.google.com/maps/search/?api=1&query=QNE+15+Lote+25+Taguatinga+Norte+Bras%C3%ADlia+DF" target="_blank" rel="noopener">Abrir no Google Maps</a>
         </div>
       </div>
       <div class="lista-local">
         <div class="item">
           <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
-          <div><strong>Endereço</strong>Brasília / Distrito Federal<br>Espaço com duas salas de atendimento e sala de espera.</div>
-        </div>
-        <div class="item">
-          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-          <div><strong>Horário de funcionamento</strong>Segunda a sexta, das 8h às 18h<br>Atendimento somente com hora marcada.</div>
-        </div>
-        <div class="item">
-          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M4 8l8 5 8-5"/></svg></span>
-          <div><strong>Como chegar</strong>Combine o melhor horário pelo WhatsApp e enviaremos o endereço com o ponto de referência.</div>
+          <div><strong>Endereço</strong>QNE 15, Lote 25, Sala 106<br>Taguatinga Norte — Brasília/DF</div>
         </div>
         <div class="item">
           <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.5 20.5l1.3-4.6A8.2 8.2 0 1112 20.2a8.4 8.4 0 01-4-1z"/></svg></span>
-          <div><strong>Fale conosco</strong>(61) 99999-0000 · contato@psicoaprender.com.br</div>
+          <div><strong>WhatsApp e telefone</strong><a href="https://wa.me/5561999214773" target="_blank" rel="noopener" style="color:var(--roxo)">(61) 99921-4773</a></div>
         </div>
-        <a class="btn" href="https://wa.me/5561999990000" target="_blank" rel="noopener" style="width:fit-content">Pedir o endereço no WhatsApp</a>
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M4 8l8 5 8-5"/></svg></span>
+          <div><strong>E-mail</strong><a href="mailto:psicoaprenderdf@gmail.com" style="color:var(--roxo)">psicoaprenderdf@gmail.com</a></div>
+        </div>
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></span>
+          <div><strong>Instagram</strong><a href="https://www.instagram.com/psicoaprenderdf" target="_blank" rel="noopener" style="color:var(--roxo)">@psicoaprenderdf</a></div>
+        </div>
+        <div class="item">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <div><strong>Atendimento</strong>Somente com horário agendado previamente.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -340,15 +556,16 @@ section.bloco{padding:56px 0}
 
 <footer class="wrap rodape">
   <img src="/assets/marca.png" alt="PsicoAprender">
-  <span>© 2026 PsicoAprender · Espaço de Aprendizagem</span>
+  <span>© 2026 PsicoAprender · Espaço de Aprendizagem · QNE 15, Lote 25, Sala 106 — Taguatinga/DF</span>
   <a href="/sistema.html" style="margin-left:auto;color:var(--roxo);font-weight:500">Acesso das profissionais</a>
 </footer>
 
-<a class="zap" href="https://wa.me/5561999990000" target="_blank" rel="noopener" aria-label="WhatsApp">
+<a class="flutuante" href="https://wa.me/5561999214773" target="_blank" rel="noopener" aria-label="WhatsApp">
   <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3.5 20.5l1.3-4.6A8.2 8.2 0 1112 20.2a8.4 8.4 0 01-4-1z"/><path d="M9 9.5c0 3 2.5 5.5 5.4 5.5.6-.6.9-1.2.6-1.7l-1.5-.7-.9.9c-1-.4-1.9-1.3-2.3-2.3l.9-.9-.7-1.5c-.5-.3-1.1 0-1.5.7z"/>
   </svg>
 </a>
+
 <script>
 (function () {
   var botoes = document.querySelectorAll('[data-aba]');
@@ -368,7 +585,6 @@ section.bloco{padding:56px 0}
   }
 
   botoes.forEach(function (b) { b.addEventListener('click', function () { abrir(b.dataset.aba, true); }); });
-  // links internos (botões do hero, rodapé) continuam funcionando como abas
   document.querySelectorAll('a[href^="#"]').forEach(function (a) {
     a.addEventListener('click', function (ev) { ev.preventDefault(); abrir(a.getAttribute('href').slice(1), true); });
   });

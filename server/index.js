@@ -9,9 +9,6 @@ const db = require('./db');
 const { seed, AREAS } = require('./seed');
 const A = require('./auth');
 
-db.load();
-seed();
-
 const app = express();
 app.set('trust proxy', true);
 app.use(express.json({ limit: '25mb' }));
@@ -610,6 +607,7 @@ app.delete('/api/relatorios/:id', A.exigir('clinico'), (req, res) => { db.relato
 /** Base factual para o relatório: apenas o que foi registrado pela profissional. */
 app.get('/api/relatorios/base/:paciente_id', A.exigir('clinico'), (req, res) => {
   const p = db.pacientes.byId(req.params.paciente_id);
+  if (!p) return res.status(404).json({ erro: 'Paciente não encontrado. Cadastre o paciente antes de gerar o relatório.' });
   if (!A.podeVerPaciente(req.usuario, p)) return res.status(403).json({ erro: 'Sem acesso.' });
   const de = req.query.de || addDias(hojeISO(), -90), ate = req.query.ate || hojeISO();
   const regs = db.registros.find({ paciente_id: p.id }).filter(r => r.data >= de && r.data <= ate).sort((a, b) => a.data.localeCompare(b.data));
@@ -922,4 +920,19 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`PsicoAprender Gestão em http://0.0.0.0:${PORT}`));
+
+/* O armazenamento é preparado antes de aceitar requisições: com Turso
+   configurado, o estado vem do banco externo e sobrevive a novas publicações. */
+(async () => {
+  try {
+    const info = await db.iniciar();
+    console.log(info.modo === 'turso'
+      ? `Dados no Turso (banco externo)${info.novo ? ' — banco iniciado agora' : ''}.`
+      : `Dados em arquivo local: ${info.caminho}`);
+    seed();
+    app.listen(PORT, '0.0.0.0', () => console.log(`PsicoAprender Gestão em http://0.0.0.0:${PORT}`));
+  } catch (err) {
+    console.error('Não foi possível iniciar o armazenamento:', err.message);
+    process.exit(1);
+  }
+})();

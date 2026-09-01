@@ -12,7 +12,8 @@
   "description": "Sistema de gestão para a PsicoAprender – Espaço de Aprendizagem",
   "dependencies": {
     "cookie-parser": "^1.4.7",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "@libsql/client": "^0.15.15"
   },
   "private": true,
   "engines": {

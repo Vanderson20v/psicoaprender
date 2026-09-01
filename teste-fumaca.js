@@ -5,9 +5,11 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = 'http://localhost:3000';
-const rotas = ['#/dashboard', '#/agenda', '#/agenda?v=dia', '#/pacientes', '#/paciente/1', '#/paciente/1?aba=agenda',
-  '#/paciente/1?aba=diario', '#/paciente/1?aba=evolucao', '#/paciente/1?aba=documentos',
-  '#/paciente/1?aba=financeiro', '#/responsaveis', '#/atendimentos', '#/atendimentos?filtro=sem_registro',
+/* O sistema nasce sem pacientes: o teste cria o seu próprio antes de percorrer as telas.
+   {ID} é trocado pelo id do paciente criado. */
+const rotas = ['#/dashboard', '#/agenda', '#/agenda?v=dia', '#/pacientes', '#/paciente/{ID}', '#/paciente/{ID}?aba=agenda',
+  '#/paciente/{ID}?aba=diario', '#/paciente/{ID}?aba=evolucao', '#/paciente/{ID}?aba=documentos',
+  '#/paciente/{ID}?aba=financeiro', '#/responsaveis', '#/atendimentos', '#/atendimentos?filtro=sem_registro',
   '#/atendimentos?filtro=faltas', '#/evolucao', '#/relatorios', '#/financeiro', '#/documentos',
   '#/profissionais', '#/configuracoes', '#/configuracoes?aba=mensagens', '#/configuracoes?aba=usuarios',
   '#/configuracoes?aba=seguranca'];
@@ -58,7 +60,23 @@ const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
   // ---- 3. senha errada
   if (entrou) {
-    for (const rota of rotas) {
+    // fixture: um paciente com atendimento, para as telas terem o que exibir
+    const jaExistem = await w.api.get('/api/pacientes');
+    const pac = jaExistem[0] || await w.api.post('/api/pacientes', {
+      nome: 'Paciente de Teste', nascimento: '2018-05-05', status: 'Ativo',
+      profissional_id: w.App.sessao.profissional_id, valor_sessao: 180
+    });
+    if (!jaExistem.length) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      await w.api.post('/api/atendimentos', {
+        paciente_id: pac.id, profissional_id: w.App.sessao.profissional_id,
+        data: hoje, hora: '11:00', duracao: 50, sala: w.SALAS[0], tipo: 'Psicopedagogia'
+      });
+    }
+    console.log('ok    paciente de teste criado (id ' + pac.id + ')');
+
+    for (const rotaBruta of rotas) {
+      const rota = rotaBruta.replace(/\{ID\}/g, pac.id);
       w.location.hash = rota;
       try { await w.navegar(); } catch (e) { erros.push(`${rota}: ${e.message}`); }
       await esperar(110);
@@ -69,10 +87,10 @@ const esperar = (ms) => new Promise(r => setTimeout(r, ms));
     }
     const modais = [
       ['novo paciente', () => w.modalPaciente()],
-      ['diário', () => w.abrirDiario({ paciente_id: 1 })],
+      ['diário', () => w.abrirDiario({ paciente_id: pac.id })],
       ['atendimento', () => w.modalAtendimento({})],
-      ['relatório', () => w.modalNovoRelatorio(1)],
-      ['pagamento', () => w.modalPagamento('2026-08', 1)],
+      ['relatório', () => w.modalNovoRelatorio(pac.id)],
+      ['pagamento', () => w.modalPagamento(new Date().toISOString().slice(0, 7), pac.id)],
       ['documento', () => w.modalDocumento(null, 1)]
     ];
     for (const [nome, fn] of modais) {

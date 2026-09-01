@@ -9,6 +9,21 @@
 const fs = require('fs');
 const path = require('path');
 
+/* ---------------------------------------------------------------------------
+   Onde os dados ficam guardados
+   ---------------------------------------------------------------------------
+   Sem configuração  → arquivo local em data/db.json (bom para rodar na máquina).
+   Com TURSO_DATABASE_URL → banco Turso, FORA do servidor da aplicação.
+   Isso é o que impede a perda de dados: publicar uma versão nova recria o
+   servidor, mas o banco continua intacto no Turso.
+--------------------------------------------------------------------------- */
+const TURSO_URL = process.env.TURSO_DATABASE_URL || '';
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || '';
+const usandoTurso = !!TURSO_URL;
+let turso = null;
+let salvandoRemoto = false;      // evita gravações remotas simultâneas
+let pendenteRemoto = false;
+
 // Em produção, aponte DADOS_DIR para um disco persistente (ex.: /var/dados no Render).
 const DATA_DIR = process.env.DADOS_DIR
   ? path.resolve(process.env.DADOS_DIR)
@@ -38,6 +53,63 @@ function emptyState() {
   return s;
 }
 
+/** Abre a conexão e garante a tabela onde o estado é guardado. */
+async function iniciarTurso() {
+  const { createClient } = require('@libsql/client');
+  turso = createClient({ url: TURSO_URL, authToken: TURSO_TOKEN });
+  await turso.execute(`CREATE TABLE IF NOT EXISTS estado (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    dados TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL
+  )`);
+}
+
+/** Lê o estado do Turso; devolve null quando o banco ainda está vazio. */
+async function lerDoTurso() {
+  const r = await turso.execute('SELECT dados FROM estado WHERE id = 1');
+  if (!r.rows.length) return null;
+  return JSON.parse(r.rows[0].dados);
+}
+
+/** Grava o estado inteiro no Turso (uma linha só, sempre substituída). */
+async function gravarNoTurso() {
+  if (salvandoRemoto) { pendenteRemoto = true; return; }
+  salvandoRemoto = true;
+  try {
+    await turso.execute({
+      sql: `INSERT INTO estado (id, dados, atualizado_em) VALUES (1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET dados = excluded.dados, atualizado_em = excluded.atualizado_em`,
+      args: [JSON.stringify(state), new Date().toISOString()]
+    });
+  } catch (err) {
+    console.error('Falha ao gravar no Turso:', err.message);
+  } finally {
+    salvandoRemoto = false;
+    if (pendenteRemoto) { pendenteRemoto = false; gravarNoTurso(); }
+  }
+}
+
+/**
+ * Prepara o armazenamento antes de o servidor atender.
+ * Deve ser aguardado no início da aplicação.
+ */
+async function iniciar() {
+  if (!usandoTurso) { load(); return { modo: 'arquivo', caminho: DB_FILE }; }
+  await iniciarTurso();
+  const remoto = await lerDoTurso();
+  if (remoto) {
+    state = remoto;
+    for (const c of COLLECTIONS) if (!state[c]) state[c] = [];
+    if (!state._seq) state._seq = {};
+    if (!state.config) state.config = {};
+    return { modo: 'turso', novo: false };
+  }
+  // Banco novo: aproveita um arquivo local, se existir, para não perder nada.
+  load();
+  await gravarNoTurso();
+  return { modo: 'turso', novo: true };
+}
+
 function load() {
   ensureDirs();
   if (fs.existsSync(DB_FILE)) {
@@ -57,10 +129,12 @@ function load() {
 }
 
 function persistNow() {
+  // O arquivo local continua sendo escrito: serve de cache e de origem para backups.
   ensureDirs();
   const tmp = DB_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(state, null, 1));
   fs.renameSync(tmp, DB_FILE);
+  if (usandoTurso) gravarNoTurso();
 }
 
 /** Escrita debounced: agrupa gravações em rajada (ex.: geração de recorrências). */
@@ -129,6 +203,8 @@ const table = (name) => ({
 
 const db = {
   get raw() { return state; },
+  iniciar,
+  get modoArmazenamento() { return usandoTurso ? 'turso' : 'arquivo'; },
   load,
   persist,
   persistNow,
