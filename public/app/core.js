@@ -150,6 +150,23 @@ const erroAviso = (e) => aviso(e?.message || 'Erro inesperado.', 'erro');
 
 /* ------------------------------ Modal ------------------------------ */
 let modalAtual = null;
+/* Impressão em PDF: o navegador imprime a página inteira por padrão, e a lista
+   que está atrás do modal saía como primeira folha. Aqui isolamos o documento:
+   tudo fica invisível, menos ele. */
+function imprimirDocumento(escopo) {
+  const doc = (escopo || document).querySelector('.documento') || document.querySelector('.documento');
+  if (!doc) return window.print();
+  const limpar = () => {
+    document.body.classList.remove('imprimindo');
+    doc.classList.remove('folha-impressa');
+  };
+  doc.classList.add('folha-impressa');
+  document.body.classList.add('imprimindo');
+  window.addEventListener('afterprint', limpar, { once: true });
+  setTimeout(() => window.print(), 40);
+  setTimeout(limpar, 4000);   // rede de segurança: nem todo navegador dispara afterprint
+}
+
 function abrirModal({ titulo, corpo, rodape = '', largo = false, aoAbrir, aoFechar }) {
   fecharModal(true);
   const fundo = document.createElement('div');

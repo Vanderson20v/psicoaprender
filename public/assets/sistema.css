@@ -462,9 +462,23 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   .lateral, .topo, .nav-inferior, .modal-topo, .modal-rodape, .nao-imprimir { display: none !important; }
   .conteudo { margin: 0; }
   .modal-fundo { position: static; padding: 0; background: none; overflow: visible; }
-  .modal { box-shadow: none; max-width: none; }
-  .modal-corpo { padding: 0; }
+  .modal { box-shadow: none; max-width: none; max-height: none; }
+  /* sem rolagem na impressão, senão o documento é cortado na primeira folha */
+  .modal-corpo { padding: 0; overflow: visible !important; max-height: none !important; }
   .documento { padding: 0 !important; border: 0 !important; }
+
+  /* Só o documento vai para o papel: a tela que está atrás some. */
+  body.imprimindo * { visibility: hidden !important; }
+  body.imprimindo .folha-impressa, body.imprimindo .folha-impressa * { visibility: visible !important; }
+  body.imprimindo .folha-impressa {
+    position: absolute; top: 0; left: 0; width: 100%;
+    padding: 0 !important; border: 0 !important; box-shadow: none !important;
+  }
+
+  /* Evita quebras feias no meio de assinatura, rodapé e títulos */
+  .documento .assinatura, .documento .doc-rodape, .documento .doc-dados { break-inside: avoid; }
+  .documento h1, .documento h3 { break-after: avoid; }
+
   @page { size: A4; margin: 18mm 16mm; }
 }
 

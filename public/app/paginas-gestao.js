@@ -233,7 +233,7 @@ function visualizarRelatorio(r) {
     </div>`,
     rodape: `<button class="btn" data-fechar>Fechar</button>
              <button class="btn btn-primario" id="imprimir">${ico('imprimir')} Exportar em PDF</button>`,
-    aoAbrir: (f) => f.querySelector('#imprimir').addEventListener('click', () => window.print())
+    aoAbrir: (f) => f.querySelector('#imprimir').addEventListener('click', () => imprimirDocumento(f))
   });
 }
 

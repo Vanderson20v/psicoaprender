@@ -141,6 +141,9 @@ Também dá para começar por **Relatórios → Novo relatório**.
 O sistema traz o que está registrado; **você escreve o texto**. Depois é
 **Exportar em PDF** — sai com logo, seu nome, registro, data e assinatura.
 
+Na janela de impressão do navegador, escolha **"Salvar como PDF"** em vez de uma
+impressora. Só o relatório vai para o papel; a tela do sistema não aparece.
+
 ---
 
 ## 4. Agenda no dia a dia
