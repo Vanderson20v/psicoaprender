@@ -609,3 +609,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   background: var(--superficie-2); border: 1px solid var(--linha); border-radius: var(--raio); }
 .lista-simples li { padding: 4px 0; }
 .lista-simples li + li { border-top: 1px solid var(--linha); }
+
+/* Reposição de sessão */
+.tag.simples.t-roxo { background: var(--roxo-claro); color: var(--roxo-escuro); border-color: #ded2ee; }
+.evento-reposicao { border-left-style: dashed !important; }

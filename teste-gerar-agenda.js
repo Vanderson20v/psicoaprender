@@ -127,7 +127,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
   // ---------- conflito: outra criança na mesma sala e horário ----------
   const outro = await chamar('POST', '/api/pacientes', {
     nome: 'TESTE Conflito', data_nascimento: '2015-01-01',
-    profissional_id: vanessa.id, status: 'Em acompanhamento'
+    profissional_id: vanessa.id, status: 'Ativo'
   });
   const conflitante = await chamar('POST', '/api/atendimentos', {
     paciente_id: outro.id, profissional_id: vanessa.id,

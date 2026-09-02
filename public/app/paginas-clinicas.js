@@ -422,6 +422,133 @@ function modalBloqueio(data, profs) {
   });
 }
 
+
+/* ------------------------- DESMARCAR E REPOR -------------------------
+   Uma sessão desmarcada quase sempre vem com uma reposição combinada por
+   telefone. Se o sistema não perguntar na hora, a combinação vira um bilhete
+   no caderno e a criança perde a sessão. Três caminhos: marcar agora,
+   marcar depois (vira pendência visível) ou não haverá reposição. */
+async function modalDesmarcar(at, paciente, situacao) {
+  const familia = situacao === 'falta';
+  abrirModal({
+    titulo: familia ? 'Registrar falta' : 'Cancelar atendimento',
+    corpo: `<p class="td-secundario" style="margin-top:0">
+        ${esc(paciente.nome)} — ${dataBR(at.data)} às ${at.hora}</p>
+
+      ${campo('Quem desmarcou', `<div class="escolhas" id="ds-origem">
+        <div class="escolha ${familia ? 'ativa' : ''}" data-v="familia">A família</div>
+        <div class="escolha ${familia ? '' : 'ativa'}" data-v="profissional">A profissional</div>
+        <div class="escolha" data-v="outro">Outro motivo</div>
+      </div>`)}
+
+      ${campo('Aviso', `<div class="escolhas" id="ds-aviso">
+        <div class="escolha ativa" data-v="Com antecedência">Avisou antes</div>
+        <div class="escolha" data-v="Em cima da hora">Em cima da hora</div>
+        <div class="escolha" data-v="Sem aviso">Não avisou</div>
+      </div>`)}
+
+      ${campo('Motivo', entrada('motivo', '', 'text', 'id="ds-motivo" placeholder="opcional — ex.: criança adoeceu"'))}
+
+      ${campo('Haverá reposição?', `<div class="escolhas" id="ds-rep">
+        <div class="escolha ativa" data-v="agora">Sim, marcar agora</div>
+        <div class="escolha" data-v="depois">Sim, marcar depois</div>
+        <div class="escolha" data-v="nao">Não haverá</div>
+      </div>`, 'A reposição substitui a sessão perdida — não é cobrada de novo.')}
+
+      <div id="ds-quando">
+        <div class="linha-campos tres">
+          ${campo('Data da reposição', entrada('rep_data', somaDias(hojeISO(), 7), 'date', 'id="ds-data"'))}
+          ${campo('Horário', entrada('rep_hora', at.hora, 'time', 'id="ds-hora"'))}
+          ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="ds-sala"'))}
+        </div>
+      </div>
+      <div id="ds-nota-depois" class="aviso atencao" style="display:none">
+        Vai ficar como <strong>reposição a marcar</strong> nos alertas e na ficha da criança,
+        até que a nova data seja definida.
+      </div>`,
+    rodape: `<button class="btn" data-fechar>Voltar</button>
+      <button class="btn btn-primario" id="ds-salvar">Confirmar</button>`,
+    aoAbrir: (f) => {
+      const escolher = (id) => {
+        const caixa = f.querySelector(id);
+        caixa.querySelectorAll('.escolha').forEach(e => e.addEventListener('click', () => {
+          caixa.querySelectorAll('.escolha').forEach(x => x.classList.remove('ativa'));
+          e.classList.add('ativa');
+          if (id === '#ds-rep') alternar(e.dataset.v);
+        }));
+        return () => caixa.querySelector('.escolha.ativa')?.dataset.v;
+      };
+      const alternar = (v) => {
+        f.querySelector('#ds-quando').style.display = v === 'agora' ? '' : 'none';
+        f.querySelector('#ds-nota-depois').style.display = v === 'depois' ? '' : 'none';
+      };
+      const origem = escolher('#ds-origem');
+      const avisoPrevio = escolher('#ds-aviso');
+      const reposicao = escolher('#ds-rep');
+
+      f.querySelector('#ds-salvar').addEventListener('click', async () => {
+        const rep = reposicao();
+        const botao = f.querySelector('#ds-salvar');
+        botao.disabled = true;
+        try {
+          await api.put('/api/atendimentos/' + at.id, {
+            status: situacao,
+            origem: origem(),
+            aviso_previo: avisoPrevio(),
+            motivo: f.querySelector('#ds-motivo').value,
+            reposicao: rep === 'nao' ? 'Não' : rep === 'depois' ? 'Pendente' : 'Marcada'
+          });
+          if (rep === 'agora') {
+            await api.post('/api/atendimentos/' + at.id + '/reposicao', {
+              data: f.querySelector('#ds-data').value,
+              hora: f.querySelector('#ds-hora').value,
+              sala: f.querySelector('#ds-sala').value
+            });
+            fecharModal(true);
+            aviso('Reposição marcada na agenda.');
+          } else {
+            fecharModal(true);
+            aviso(rep === 'depois'
+              ? 'Registrado. A reposição ficou como pendente.'
+              : 'Situação atualizada.', rep === 'depois' ? 'atencao' : 'ok');
+          }
+          navegar();
+        } catch (e) {
+          botao.disabled = false;
+          erroAviso(e);   // sala ocupada, por exemplo: o registro da falta já foi salvo
+        }
+      });
+    }
+  });
+}
+
+/* Marcar a data de uma reposição que ficou pendente. */
+async function modalReporPendente(at, paciente) {
+  abrirModal({
+    titulo: 'Marcar a reposição',
+    corpo: `<p class="td-secundario" style="margin-top:0">
+        ${esc(paciente.nome)} — repor a sessão de ${dataBR(at.data)}.</p>
+      <div class="linha-campos tres">
+        ${campo('Data', entrada('rep_data', somaDias(hojeISO(), 7), 'date', 'id="rp-data"'))}
+        ${campo('Horário', entrada('rep_hora', at.hora, 'time', 'id="rp-hora"'))}
+        ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="rp-sala"'))}
+      </div>
+      <div class="ajuda">A reposição substitui a sessão perdida e não gera cobrança nova.</div>`,
+    rodape: `<button class="btn" data-fechar>Cancelar</button>
+      <button class="btn btn-primario" id="rp-salvar">Marcar na agenda</button>`,
+    aoAbrir: (f) => f.querySelector('#rp-salvar').addEventListener('click', async () => {
+      try {
+        await api.post('/api/atendimentos/' + at.id + '/reposicao', {
+          data: f.querySelector('#rp-data').value,
+          hora: f.querySelector('#rp-hora').value,
+          sala: f.querySelector('#rp-sala').value
+        });
+        fecharModal(true); aviso('Reposição marcada na agenda.'); navegar();
+      } catch (e) { erroAviso(e); }
+    })
+  });
+}
+
 async function modalDetalheAtendimento(at) {
   if (!at) return;
   const paciente = await api.get('/api/pacientes/' + at.paciente_id);
@@ -437,6 +564,8 @@ async function modalDetalheAtendimento(at) {
         <div style="margin-left:auto">${tag(at.status)}</div>
       </div>
       ${at.status === 'realizado' && !at.tem_registro ? `<div class="aviso atencao">Atendimento realizado sem diário registrado.</div>` : ''}
+      ${at.reposicao_de ? `<div class="aviso info">Esta é a <strong>reposição</strong> de um atendimento que não aconteceu. A sessão já foi cobrada na data original.</div>` : ''}
+      ${at.reposta_por ? `<div class="aviso ok">Sessão <strong>reposta</strong> em outra data.</div>` : ''}
       <div class="rotulo">Alterar situação</div>
       <div class="escolhas" style="margin-bottom:16px">
         ${acoes.map(a => `<div class="escolha ${at.status === a[0] ? 'ativa' : ''}" data-status="${a[0]}">${a[1]}</div>`).join('')}
@@ -455,7 +584,14 @@ async function modalDetalheAtendimento(at) {
       ${App.permissoes.clinico ? `<button class="btn btn-primario" id="registrar">Registrar atendimento</button>` : ''}`,
     aoAbrir: (f) => {
       f.querySelectorAll('[data-status]').forEach(el => el.addEventListener('click', async () => {
-        await api.put('/api/atendimentos/' + at.id, { status: el.dataset.status });
+        const novo = el.dataset.status;
+        /* Desmarcar quase nunca é só mudar o status: quase sempre existe uma
+           reposição combinada. Perguntar agora evita a sessão se perder. */
+        if (['falta', 'cancelado'].includes(novo) && !['falta', 'cancelado'].includes(at.status)) {
+          fecharModal(true);
+          return modalDesmarcar(at, paciente, novo);
+        }
+        await api.put('/api/atendimentos/' + at.id, { status: novo });
         fecharModal(true); aviso('Situação atualizada.'); navegar();
       }));
       const reag = async () => {
@@ -1211,14 +1347,22 @@ async function abaAgenda(cont, p) {
   const futuros = ats.filter(a => a.data >= hoje);
   const passados = ats.filter(a => a.data < hoje).reverse();
   const linha = (a) => `<tr class="clicavel" data-at="${a.id}">
-      <td class="td-principal">${dataBR(a.data)}</td><td>${a.hora}</td>
+      <td class="td-principal">${dataBR(a.data)}${a.reposicao_de ? ' <span class="tag simples t-roxo">reposição</span>' : ''}</td><td>${a.hora}</td>
       <td class="td-secundario">${esc(a.tipo)}</td>
       <td>${salaTag(a.sala)}</td>
       <td class="td-secundario">${esc(primeiroNome(a.profissional?.nome))}</td>
       <td>${tag(a.status)}</td>
       <td>${a.status === 'realizado' ? (a.tem_registro ? '<span class="td-secundario">Diário ok</span>' : '<span class="tag simples t-terra">Sem diário</span>') : ''}</td>
     </tr>`;
+  /* Sessão desmarcada com reposição combinada mas sem data: fica visível aqui
+     até virar horário de verdade. */
+  const pendentes = ats.filter(a => a.reposicao_pendente);
   cont.innerHTML = `
+    ${pendentes.length ? `<div class="aviso atencao" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div><strong>${pendentes.length} reposição(ões) a marcar.</strong>
+        ${pendentes.map(a => dataBR(a.data)).join(' · ')}</div>
+      <button class="btn btn-primario" id="marcar-reposicao" style="margin-left:auto">Marcar agora</button>
+    </div>` : ''}
     <div class="painel" style="margin-bottom:16px">
       <div class="painel-titulo"><h2>Próximos atendimentos</h2>
         <div class="acoes">
@@ -1232,6 +1376,7 @@ async function abaAgenda(cont, p) {
       <div class="painel-corpo sem-padding">${tabela(['Data', 'Hora', 'Tipo', 'Sala', 'Profissional', 'Status', ''], passados.slice(0, 40).map(linha))}</div></div>`;
   cont.querySelector('#novo').addEventListener('click', () => modalAtendimento({ paciente_id: p.id, data: hoje }));
   cont.querySelector('#gerar-habituais')?.addEventListener('click', () => modalGerarAgenda(p));
+  cont.querySelector('#marcar-reposicao')?.addEventListener('click', () => modalReporPendente(pendentes[0], p));
   cont.querySelectorAll('[data-at]').forEach(tr => tr.addEventListener('click', () => modalDetalheAtendimento(ats.find(a => a.id === Number(tr.dataset.at)))));
 }
 

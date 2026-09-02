@@ -15,6 +15,7 @@ app.use(express.json({ limit: '25mb' }));
 app.use(cookieParser());
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
+const dataBR = (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—');
 const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v));
 
@@ -264,7 +265,9 @@ function enriquecerAtendimento(a) {
     ...a,
     paciente: p ? { id: p.id, nome: p.nome, nascimento: p.nascimento } : null,
     profissional: db.profissionais.byId(a.profissional_id),
-    tem_registro: !!db.registros.findOne({ atendimento_id: a.id })
+    tem_registro: !!db.registros.findOne({ atendimento_id: a.id }),
+    /* Combinaram repor, mas a data ainda não foi definida. */
+    reposicao_pendente: db.faltas.findOne({ atendimento_id: a.id, reposicao: 'Pendente' }) ? true : false
   };
 }
 
@@ -364,15 +367,80 @@ app.put('/api/atendimentos/:id', A.exigir('agenda'), (req, res) => {
   }
 
   const at = db.atendimentos.update(a.id, corpo);
-  if (req.body?.status === 'falta' && antes.status !== 'falta' && !db.faltas.findOne({ atendimento_id: a.id })) {
+  /* Falta e cancelamento entram no mesmo histórico: o que muda é quem desmarcou.
+     "reposicao" nasce como Pendente quando as duas partes combinaram repor. */
+  const desmarcou = ['falta', 'cancelado'].includes(req.body?.status);
+  if (desmarcou && !['falta', 'cancelado'].includes(antes.status) && !db.faltas.findOne({ atendimento_id: a.id })) {
     db.faltas.insert({
       paciente_id: a.paciente_id, atendimento_id: a.id, data: a.data,
-      motivo: req.body.motivo_falta || '', aviso_previo: req.body.aviso_previo || 'Sem aviso',
-      reposicao: 'Não', cobrado: false
+      profissional_id: a.profissional_id,
+      situacao: req.body.status,
+      origem: req.body.origem || (req.body.status === 'falta' ? 'familia' : 'profissional'),
+      motivo: req.body.motivo_falta || req.body.motivo || '',
+      aviso_previo: req.body.aviso_previo || 'Sem aviso',
+      reposicao: req.body.reposicao || 'Não',
+      reposicao_atendimento_id: null,
+      cobrado: false
     });
   }
   A.registrarLog(req, 'alteracao', 'atendimentos', a.id, `status ${antes.status} → ${at.status}`);
   res.json(enriquecerAtendimento(at));
+});
+
+
+/* ---------------------------- REPOSIÇÃO ----------------------------
+   Uma reposição é um atendimento novo, ligado ao que foi perdido. Não é
+   remarcação: o original continua no histórico como falta ou cancelamento,
+   para que o motivo e a frequência real não se percam. Como a reposição
+   substitui a sessão perdida, ela não gera cobrança extra. */
+app.post('/api/atendimentos/:id/reposicao', A.exigir('agenda'), (req, res) => {
+  const original = db.atendimentos.byId(req.params.id);
+  if (!original) return res.status(404).json({ erro: 'Atendimento não encontrado.' });
+  if (!A.podeVerPaciente(req.usuario, db.pacientes.byId(original.paciente_id))) {
+    return res.status(403).json({ erro: 'Sem acesso a este paciente.' });
+  }
+  if (original.reposta_por && db.atendimentos.byId(original.reposta_por)) {
+    return res.status(409).json({ erro: 'Este atendimento já tem uma reposição marcada.' });
+  }
+  const d = req.body || {};
+  if (!d.data || !d.hora) return res.status(400).json({ erro: 'Data e horário da reposição são obrigatórios.' });
+
+  const sala = d.sala || original.sala;
+  const profissional_id = Number(d.profissional_id) || original.profissional_id;
+  const duracao = Number(d.duracao) || original.duracao || 50;
+  const c = conflitoDeAgenda({ data: d.data, hora: d.hora, duracao, sala, profissional_id, usuario: req.usuario });
+  if (c) return res.status(409).json({ erro: c.mensagem, conflito: c });
+
+  const nova = db.atendimentos.insert({
+    paciente_id: original.paciente_id, profissional_id, data: d.data, hora: d.hora,
+    duracao, sala, tipo: original.tipo, valor: 0,          // já paga na sessão perdida
+    status: 'agendado', reposicao_de: original.id,
+    observacao: d.observacao || `Reposição do atendimento de ${dataBR(original.data)}.`,
+    criado_por: req.usuario.nome
+  });
+  db.atendimentos.update(original.id, { reposta_por: nova.id });
+
+  const falta = db.faltas.findOne({ atendimento_id: original.id });
+  if (falta) db.faltas.update(falta.id, { reposicao: 'Marcada', reposicao_atendimento_id: nova.id });
+
+  A.registrarLog(req, 'criacao', 'atendimentos', nova.id,
+    `reposição de ${dataBR(original.data)} → ${dataBR(d.data)} ${d.hora}`);
+  res.json(enriquecerAtendimento(nova));
+});
+
+/* Reposições combinadas mas ainda sem data marcada. */
+app.get('/api/reposicoes-pendentes', A.exigir('agenda'), (req, res) => {
+  const visiveis = new Set(A.pacientesVisiveis(req.usuario).map(p => p.id));
+  const lista = db.faltas.all()
+    .filter(f => f.reposicao === 'Pendente' && visiveis.has(f.paciente_id))
+    .map(f => ({
+      ...f,
+      paciente: db.pacientes.byId(f.paciente_id)?.nome || '—',
+      profissional: db.profissionais.byId(f.profissional_id)?.nome || '',
+      dias_espera: Math.max(0, Math.round((new Date(hojeISO()) - new Date(f.data)) / 86400000))
+    }))
+    .sort((a, b) => a.data.localeCompare(b.data));
+  res.json(lista);
 });
 
 app.delete('/api/atendimentos/:id', A.exigir('agenda'), (req, res) => {
@@ -1035,6 +1103,21 @@ function calcularAlertas(req) {
     if (ultimo && ultimo < addDias(hoje, -30)) {
       alertas.push({ tipo: 'ausencia', prioridade: 'media', titulo: `${p.nome.split(' ')[0]} sem atendimento há mais de 30 dias`, detalhe: `Último atendimento em ${ultimo.split('-').reverse().join('/')}`, link: `#/paciente/${p.id}` });
     }
+    /* Reposição combinada com a família e ainda sem data: some da agenda e
+       é esquecida com facilidade, então vira alerta até ser marcada. */
+    db.faltas.find({ paciente_id: p.id, reposicao: 'Pendente' }).forEach(f => {
+      const dias = Math.round((new Date(hoje) - new Date(f.data)) / 86400000);
+      alertas.push({
+        tipo: 'reposicao',
+        prioridade: dias > 21 ? 'alta' : 'media',
+        titulo: `Reposição a marcar — ${p.nome.split(' ')[0]}`,
+        detalhe: `Sessão de ${f.data.split('-').reverse().join('/')} não aconteceu` +
+          (dias > 0 ? ` · há ${dias} dia(s)` : '') +
+          (f.origem === 'profissional' ? ' · desmarcada pela profissional' : ''),
+        link: `#/paciente/${p.id}?aba=agenda`
+      });
+    });
+
     /* Sem anamnese não há plano de trabalho combinado: é a pendência mais
        importante de um paciente que já começou a ser atendido. */
     if (req.perm.clinico && !db.anamneses.findOne({ paciente_id: p.id })) {

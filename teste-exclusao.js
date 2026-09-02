@@ -30,7 +30,7 @@ const api = (t) => async (metodo, url, corpo) => {
   // paciente descartável, com rastro em várias coleções
   const pac = (await admin('POST', '/api/pacientes', {
     nome: 'TESTE Exclusao', data_nascimento: '2018-04-02',
-    profissional_id: vanessa.id, status: 'Em acompanhamento',
+    profissional_id: vanessa.id, status: 'Ativo',
     responsaveis: [{ nome: 'Mãe Teste', telefone: '61999999999', parentesco: 'Mãe' }]
   })).corpo;
   if (!pac.id) return falha('não criou o paciente de teste');

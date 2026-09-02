@@ -157,6 +157,30 @@ Cada horário tem um estado: **agendado → confirmado → realizado**, ou **fal
 **cancelado**. Marcar corretamente é o que faz o controle de faltas e o financeiro
 funcionarem.
 
+### Quando a sessão não acontece
+
+Toque no horário → escolha **Registrar falta** (a família não veio) ou **Cancelar**
+(a profissional desmarcou). O sistema então pergunta o que realmente importa:
+
+- **Quem desmarcou** — a família, a profissional ou outro motivo
+- **Se houve aviso** — antes, em cima da hora, ou não avisou
+- **O motivo** (opcional)
+- **Se haverá reposição** — marcar agora, marcar depois, ou não haverá
+
+Se escolher **marcar agora**, é só informar a nova data, hora e sala: a reposição
+entra na agenda já ligada à sessão perdida.
+
+Se escolher **marcar depois** (o caso de "vamos ver na semana que vem"), fica como
+**reposição a marcar** nos alertas e na ficha da criança, até alguém definir a data.
+Depois de 21 dias esperando, o alerta sobe para prioridade alta.
+
+> **A reposição não é cobrada de novo.** Ela substitui a sessão perdida, então entra
+> na agenda com valor zero. A sessão original permanece no histórico como falta ou
+> cancelamento — com o motivo e quem desmarcou —, porque é assim que se enxerga a
+> frequência real da criança e se conversa com a família quando as faltas se repetem.
+
+Na agenda e na ficha, a reposição aparece com a etiqueta **reposição**.
+
 **Bloqueios** servem para férias, reunião, almoço, feriado e ausência — o horário
 fica indisponível e ninguém marca em cima.
 
@@ -196,6 +220,7 @@ O sino no topo reúne o que precisa de atenção:
 | Anamnese pendente | Criança em acompanhamento sem anamnese registrada |
 | Diário pendente | Atendimento realizado sem registro |
 | Pagamento em atraso | Vencimento passou e continua pendente |
+| Reposição a marcar | Sessão desmarcada com reposição combinada e sem data |
 | Sem atendimento há 30 dias | Criança sumiu da agenda |
 | Documentação pendente | Falta consentimento ou contrato |
 | Reavaliação | Tempo de acompanhamento sugere revisão |
