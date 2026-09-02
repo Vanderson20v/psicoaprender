@@ -167,6 +167,61 @@ function imprimirDocumento(escopo) {
   setTimeout(limpar, 4000);   // rede de segurança: nem todo navegador dispara afterprint
 }
 
+
+/* ------------------------- SELETOR DE HORÁRIO -------------------------
+   Uma camada por cima do formulário, não no lugar dele: a profissional olha a
+   agenda, toca no horário livre e volta com a escolha feita, sem perder nada do
+   que já preencheu. Não usa abrirModal de propósito — aquele fecha o modal atual,
+   que aqui é justamente o formulário que precisa continuar vivo. */
+let seletorHorario = null;
+
+function abrirSeletorHorario({ data, duracao = 50, profissional_id, titulo = 'Escolher horário na agenda', aoEscolher }) {
+  fecharSeletorHorario();
+  const camada = document.createElement('div');
+  camada.className = 'seletor-fundo';
+  camada.innerHTML = `
+    <div class="seletor" role="dialog" aria-modal="true">
+      <div class="seletor-topo">
+        <h2>${esc(titulo)}</h2>
+        <button class="btn btn-sutil btn-icone" data-fechar-seletor style="margin-left:auto">${ico('fechar')}</button>
+      </div>
+      <div class="seletor-navegacao">
+        <button class="btn btn-sutil" id="sh-ant" aria-label="Dia anterior">‹</button>
+        <input type="date" id="sh-data" value="${data}">
+        <button class="btn btn-sutil" id="sh-prox" aria-label="Próximo dia">›</button>
+        <span class="td-secundario" id="sh-dia"></span>
+      </div>
+      <div class="seletor-corpo" id="sh-mapa"></div>
+      <div class="seletor-rodape">
+        <span class="td-secundario">Toque num horário livre para escolhê-lo.</span>
+        <button class="btn" data-fechar-seletor>Fechar sem escolher</button>
+      </div>
+    </div>`;
+  document.body.appendChild(camada);
+  seletorHorario = camada;
+
+  const campoData = camada.querySelector('#sh-data');
+  const desenhar = async () => {
+    const d = campoData.value;
+    camada.querySelector('#sh-dia').textContent = d ? DIAS[new Date(d + 'T12:00').getDay()] : '';
+    await montarMapaVagas(camada.querySelector('#sh-mapa'), { data: d, duracao, profissional_id },
+      (hora, sala) => { fecharSeletorHorario(); aoEscolher?.(d, hora, sala); });
+  };
+  const mover = (n) => { campoData.value = somaDias(campoData.value, n); desenhar(); };
+  camada.querySelector('#sh-ant').addEventListener('click', () => mover(-1));
+  camada.querySelector('#sh-prox').addEventListener('click', () => mover(1));
+  campoData.addEventListener('change', desenhar);
+  camada.querySelectorAll('[data-fechar-seletor]').forEach(b => b.addEventListener('click', fecharSeletorHorario));
+  camada.addEventListener('mousedown', (e) => { if (e.target === camada) fecharSeletorHorario(); });
+  desenhar();
+  return camada;
+}
+
+function fecharSeletorHorario() {
+  seletorHorario?.remove();
+  seletorHorario = null;
+}
+
 function abrirModal({ titulo, corpo, rodape = '', largo = false, aoAbrir, aoFechar }) {
   fecharModal(true);
   const fundo = document.createElement('div');
@@ -200,7 +255,11 @@ function fecharModal(silencioso) {
   document.body.style.overflow = '';
   if (!silencioso) aoFechar?.();
 }
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') confirmarSaida(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (seletorHorario) return fecharSeletorHorario();   // a camada de cima sai primeiro
+  confirmarSaida();
+});
 
 function confirmar(texto, aoConfirmar, textoBotao = 'Confirmar') {
   abrirModal({
@@ -270,7 +329,7 @@ function modalWhatsapp(paciente, contexto = {}) {
 /* O menu segue a ordem real do trabalho: o que se faz hoje, quem é atendido,
    como o caso evolui e, por último, a gestão da clínica. Os títulos existem
    para que a profissional encontre pela etapa, não pelo nome da tela. */
-const VERSAO = '30';
+const VERSAO = '31';
 
 const MENU = [
   { grupo: 'O dia' },

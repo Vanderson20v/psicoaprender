@@ -183,9 +183,68 @@ const mais = (n) => { const d = new Date(hoje + 'T12:00'); d.setDate(d.getDate()
     ? falha('reposição: o erro antigo continuou depois de escolher outra vaga')
     : ok('reposição: o aviso de erro some ao escolher uma vaga livre');
 
-  d3.querySelector('#ds-abrir-agenda')
-    ? ok('reposição: existe atalho para ver a agenda completa do dia')
-    : falha('reposição: sem atalho para a agenda');
+  // ---------- o seletor: agenda por cima, sem sair do formulário ----------
+  const botaoAgenda = d3.querySelector('#ds-abrir-agenda');
+  botaoAgenda ? ok('reposição: existe o botão para ver outros dias') : falha('reposição: sem botão');
+
+  const motivoAntes = 'anotação que não pode se perder';
+  d3.querySelector('#ds-motivo').value = motivoAntes;
+  botaoAgenda.click();
+  await espera(900);
+
+  const seletor = w.document.querySelector('.seletor-fundo');
+  seletor ? ok('seletor: abre uma janela sobre o formulário')
+    : falha('seletor: não abriu');
+
+  w.document.querySelector('.modal-fundo')
+    ? ok('seletor: o formulário continua aberto por baixo')
+    : falha('seletor: o formulário foi fechado — perderia tudo');
+
+  d3.querySelector('#ds-motivo')?.value === motivoAntes
+    ? ok('seletor: o que já foi digitado continua lá')
+    : falha('seletor: perdeu o texto digitado');
+
+  seletor.querySelector('#sh-data') && seletor.querySelector('#sh-ant') && seletor.querySelector('#sh-prox')
+    ? ok('seletor: dá para navegar entre os dias')
+    : falha('seletor: sem navegação de dias');
+
+  // avançar um dia e escolher uma vaga lá
+  const dataInicial = seletor.querySelector('#sh-data').value;
+  seletor.querySelector('#sh-prox').click();
+  await espera(900);
+  const novaData = seletor.querySelector('#sh-data').value;
+  novaData !== dataInicial ? ok('seletor: a seta avança para o dia seguinte (' + novaData + ')')
+    : falha('seletor: não mudou de dia');
+
+  const vagasSeletor = seletor.querySelectorAll('.mapa-vaga[data-hora]');
+  vagasSeletor.length ? ok('seletor: mostra as vagas livres do dia navegado')
+    : falha('seletor: sem vagas no dia navegado');
+
+  const alvo = vagasSeletor[3] || vagasSeletor[0];
+  const horaAlvo = alvo.dataset.hora, salaAlvo = alvo.dataset.sala;
+  alvo.click();
+  await espera(400);
+
+  !w.document.querySelector('.seletor-fundo')
+    ? ok('seletor: ao escolher, a janela fecha sozinha')
+    : falha('seletor: continuou aberta depois da escolha');
+
+  w.document.querySelector('.modal-fundo')
+    ? ok('seletor: e devolve a profissional ao formulário')
+    : falha('seletor: o formulário sumiu');
+
+  d3.querySelector('#ds-data').value === novaData
+    ? ok('seletor: a data escolhida voltou para o formulário')
+    : falha('seletor: data não voltou (' + d3.querySelector('#ds-data').value + ' ≠ ' + novaData + ')');
+  d3.querySelector('#ds-hora').value === horaAlvo
+    ? ok('seletor: o horário escolhido voltou (' + horaAlvo + ')')
+    : falha('seletor: horário não voltou');
+  d3.querySelector('#ds-sala').value === salaAlvo
+    ? ok('seletor: e a sala também')
+    : falha('seletor: sala não voltou');
+  d3.querySelector('#ds-motivo').value === motivoAntes
+    ? ok('seletor: o motivo digitado antes continua intacto')
+    : falha('seletor: perdeu o motivo no caminho');
 
   // agora confirma e deve funcionar
   d3.querySelector('#ds-salvar').click();
@@ -196,9 +255,9 @@ const mais = (n) => { const d = new Date(hoje + 'T12:00'); d.setDate(d.getDate()
 
   const depois = (await chamar('GET', '/api/atendimentos?paciente_id=' + pacB.id));
   const reposicoes = depois.filter(a => a.reposicao_de);
-  reposicoes.length === 1 && reposicoes[0].hora === escolhida.dataset.hora
-    ? ok('reposição: criada no horário livre escolhido, não em cima de ninguém')
-    : falha('reposição: ' + reposicoes.length + ' reposição(ões) em horário inesperado');
+  reposicoes.length === 1 && reposicoes[0].hora === horaAlvo && reposicoes[0].data === novaData
+    ? ok('reposição: criada exatamente no horário escolhido pela agenda (' + novaData + ' ' + horaAlvo + ')')
+    : falha('reposição: gravou ' + JSON.stringify(reposicoes.map(a => [a.data, a.hora])) + ', esperado ' + novaData + ' ' + horaAlvo);
 
   const origDepois = depois.find(a => a.id === orig.id);
   origDepois.status === 'falta'

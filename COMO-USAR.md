@@ -177,9 +177,12 @@ Toque no horário → escolha **Registrar falta** (a família não veio) ou **Ca
 
 Se escolher **marcar agora**, o sistema mostra o **mapa de horários daquele dia** —
 as duas salas, hora a hora, com o que está livre e o que está ocupado (e por quem).
-Toque numa vaga livre e o horário e a sala se preenchem sozinhos. Se preferir olhar
-com calma, o botão **Ver a agenda deste dia** abre a agenda completa numa nova aba,
-sem perder o que você já preencheu.
+Toque numa vaga livre e o horário e a sala se preenchem sozinhos.
+
+Se o dia sugerido não servir, o botão **Ver outros dias** abre a agenda **por cima do
+formulário**, com setas para passar de um dia para outro. Ao tocar num horário livre,
+a janela fecha e a data, a hora e a sala voltam preenchidas — sem perder nada do que
+você já tinha escrito.
 
 Se escolher **marcar depois** (o caso de "vamos ver na semana que vem"), fica como
 **reposição a marcar** nos alertas e na ficha da criança, até alguém definir a data.

@@ -630,3 +630,27 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 .mapa-compacto .rotulo { margin-bottom: 8px; }
 .mapa-compacto .mapa-vaga { min-height: 34px; font-size: 12px; }
 @media (max-width: 720px) { .mapa-compacto { max-height: 220px; } .mapa-compacto .mapa-vaga { min-height: 44px; } }
+
+/* ---- Seletor de horário: camada por cima do formulário, sem fechá-lo ---- */
+.seletor-fundo {
+  position: fixed; inset: 0; background: rgba(30, 33, 36, .45); z-index: 140;
+  display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+}
+.seletor {
+  background: var(--superficie); border-radius: var(--raio-g); width: 100%; max-width: 640px;
+  max-height: calc(100vh - 48px); display: flex; flex-direction: column;
+  box-shadow: 0 18px 50px rgba(20, 22, 26, .28); border: 1px solid var(--linha);
+}
+.seletor-topo { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; border-bottom: 1px solid var(--linha); }
+.seletor-topo h2 { font-size: 16px; margin: 0; }
+.seletor-navegacao { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--linha); flex-wrap: wrap; }
+.seletor-navegacao input[type="date"] { width: auto; min-width: 150px; }
+.seletor-navegacao .btn { min-width: 38px; font-size: 18px; line-height: 1; padding: 8px 12px; }
+.seletor-corpo { padding: 14px 18px; overflow-y: auto; flex: 1; }
+.seletor-rodape { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--linha); background: var(--superficie-2); border-radius: 0 0 var(--raio-g) var(--raio-g); }
+.seletor-rodape .btn { margin-left: auto; }
+@media (max-width: 720px) {
+  .seletor-fundo { padding: 0; align-items: flex-end; }
+  .seletor { max-width: none; max-height: 92vh; border-radius: var(--raio-g) var(--raio-g) 0 0; }
+  .seletor-navegacao .btn { min-height: 44px; }
+}

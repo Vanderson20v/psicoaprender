@@ -591,7 +591,7 @@ async function modalDesmarcar(at, paciente, situacao) {
         </div>
         <div id="ds-mapa" class="mapa-compacto"></div>
         <div style="text-align:right">
-          <button type="button" class="btn btn-sutil" id="ds-abrir-agenda">${ico('agenda')} Ver a agenda deste dia</button>
+          <button type="button" class="btn btn-sutil" id="ds-abrir-agenda">${ico("agenda")} Ver outros dias</button>
         </div>
       </div>
       <div id="ds-aviso"></div>
@@ -632,9 +632,16 @@ async function modalDesmarcar(at, paciente, situacao) {
       campoData.addEventListener('change', atualizarMapa);
       atualizarMapa();
 
-      f.querySelector('#ds-abrir-agenda').addEventListener('click', () => {
-        window.open(`sistema.html#/agenda?data=${campoData.value}&visao=salas`, '_blank');
-      });
+      f.querySelector('#ds-abrir-agenda').addEventListener('click', () => abrirSeletorHorario({
+        data: campoData.value, duracao: at.duracao || 50, profissional_id: at.profissional_id,
+        titulo: 'Escolher o horário da reposição',
+        aoEscolher: (data, hora, sala) => {
+          campoData.value = data; campoHora.value = hora; campoSala.value = sala;
+          f.querySelector('#ds-aviso').innerHTML = '';
+          atualizarMapa();
+          aviso(`Reposição em ${dataBR(data)} às ${hora}.`, 'ok');
+        }
+      }));
 
       const painelAviso = f.querySelector('#ds-aviso');
 
@@ -724,6 +731,9 @@ async function modalReporPendente(at, paciente) {
         ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="rp-sala"'))}
       </div>
       <div id="rp-mapa" class="mapa-compacto"></div>
+      <div style="text-align:right;margin-bottom:8px">
+        <button type="button" class="btn btn-sutil" id="rp-ver-agenda">${ico('agenda')} Ver outros dias</button>
+      </div>
       <div id="rp-aviso"></div>
       <div class="ajuda">A reposição substitui a sessão perdida e não gera cobrança nova.</div>`,
     rodape: `<button class="btn" data-fechar>Cancelar</button>
@@ -740,6 +750,17 @@ async function modalReporPendente(at, paciente) {
       );
       f.querySelector('#rp-data').addEventListener('change', atualizarMapa);
       atualizarMapa();
+      f.querySelector('#rp-ver-agenda')?.addEventListener('click', () => abrirSeletorHorario({
+        data: f.querySelector('#rp-data').value, duracao: at.duracao || 50, profissional_id: at.profissional_id,
+        titulo: 'Escolher o horário da reposição',
+        aoEscolher: (data, hora, sala) => {
+          f.querySelector('#rp-data').value = data;
+          f.querySelector('#rp-hora').value = hora;
+          f.querySelector('#rp-sala').value = sala;
+          f.querySelector('#rp-aviso').innerHTML = '';
+          atualizarMapa();
+        }
+      }));
 
       f.querySelector('#rp-salvar').addEventListener('click', async () => {
       const botao = f.querySelector('#rp-salvar');
@@ -984,9 +1005,11 @@ async function modalGerarAgenda(p) {
           </label>`;
 
         const primeiroOcupado = verificado.por_horario.find(h => h.ocupadas.length)?.ocupadas[0]?.data;
-        f.querySelector('#ga-ver-agenda')?.addEventListener('click', () => {
-          window.open(`sistema.html#/agenda?data=${primeiroOcupado}&visao=salas`, '_blank');
-        });
+        f.querySelector('#ga-ver-agenda')?.addEventListener('click', () => abrirSeletorHorario({
+          data: primeiroOcupado, profissional_id: p.profissional_id,
+          titulo: 'Agenda de ' + dataBR(primeiroOcupado),
+          aoEscolher: () => aviso('Para mudar o horário habitual, ajuste os dias no cadastro da criança.', 'atencao')
+        }));
 
         const aceitar = f.querySelector('#ga-aceitar');
         botao.textContent = verificado.livres
