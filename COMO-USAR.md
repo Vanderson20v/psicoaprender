@@ -204,6 +204,16 @@ abri-la o sistema mostra a data, o horário, quem desmarcou e o motivo registrad
 A sessão perdida, por sua vez, mostra **em que dia foi reposta**. Assim, ao conversar
 com a família, a informação está inteira dos dois lados — sem depender de memória.
 
+No mapa de horários, três situações aparecem diferentes:
+
+- **Livre** — pode marcar
+- **Sala ocupada** — outra criança está naquela sala, naquele horário
+- **Sala livre, profissional ocupada** — a sala está vaga, mas você já atende
+  na outra sala nesse horário. Outra profissional pode usá-la normalmente
+
+Uma criança ocupa **uma** sala. Se você vir as duas indisponíveis, é porque a
+segunda está bloqueada apenas para você, não reservada para a criança.
+
 **Bloqueios** servem para férias, reunião, almoço, feriado e ausência — o horário
 fica indisponível e ninguém marca em cima.
 

@@ -319,34 +319,19 @@ async function modalAtendimento(pre = {}) {
       f.querySelector('#rec').addEventListener('change', (e) => f.querySelector('#rec-op').style.display = e.target.checked ? 'grid' : 'none');
 
       const campos = ['#at-data', '#at-duracao', '#at-prof'];
+      /* Usa o mesmo mapa das outras telas: um único lugar para decidir o que é
+         "ocupado" e o que é "indisponível". */
       const desenharMapa = async () => {
-        const cont = f.querySelector('#mapa');
-        cont.innerHTML = '<div class="td-secundario">Carregando disponibilidade…</div>';
-        const dados = await api.get('/api/agenda/disponibilidade', {
+        await montarMapaVagas(f.querySelector('#mapa'), {
           data: f.querySelector('#at-data').value,
           duracao: f.querySelector('#at-duracao').value,
           profissional_id: f.querySelector('#at-prof').value
-        });
-        const horas = dados.grade[0].horarios.map(h => h.hora);
-        cont.innerHTML = `<div class="mapa-salas" style="--salas:${dados.salas.length}">
-          <div class="mapa-linha"><div></div>
-            ${dados.salas.map((x, i) => `<div class="sala-tag sala-${i + 1}" style="justify-content:center">${esc(x)}</div>`).join('')}</div>
-          ${horas.map(hora => `<div class="mapa-linha">
-            <div class="mapa-hora">${hora}</div>
-            ${dados.grade.map(g => {
-              const v = g.horarios.find(h => h.hora === hora);
-              return v.livre
-                ? `<button type="button" class="mapa-vaga" data-hora="${hora}" data-sala="${esc(g.sala)}">Livre<span class="quem">Toque para escolher</span></button>`
-                : `<div class="mapa-vaga ocupada" title="${esc(v.detalhe || '')}">${v.motivo === 'bloqueio' ? 'Bloqueado' : 'Ocupado'}<span class="quem">${esc(v.ocupado_por || '')}</span></div>`;
-            }).join('')}
-          </div>`).join('')}
-        </div>`;
-        marcarEscolha();
-        cont.querySelectorAll('.mapa-vaga[data-hora]').forEach(b => b.addEventListener('click', () => {
-          f.querySelector('#at-hora').value = b.dataset.hora;
-          f.querySelector('#at-sala').value = b.dataset.sala;
+        }, (hora, sala) => {
+          f.querySelector('#at-hora').value = hora;
+          f.querySelector('#at-sala').value = sala;
           marcarEscolha();
-        }));
+        });
+        marcarEscolha();
       };
       const marcarEscolha = () => {
         const hora = f.querySelector('#at-hora').value, sala = f.querySelector('#at-sala').value;
@@ -437,6 +422,15 @@ function modalBloqueio(data, profs) {
    livre clicável. Nasceu dentro do agendamento avulso; virou peça solta porque
    a mesma pergunta — "que horário sobra nesse dia?" — aparece em vários lugares.
    Chama aoEscolher(hora, sala) quando a profissional toca numa vaga livre. */
+/* "Ocupado" e "indisponível" são coisas diferentes, e confundi-las faz parecer que
+   uma criança reservou as duas salas. A sala pode estar livre e mesmo assim não
+   servir, porque a profissional está atendendo na outra ao mesmo tempo. */
+function rotuloIndisponivel(v) {
+  if (v.motivo === 'bloqueio') return 'Bloqueado';
+  if (v.motivo === 'profissional') return 'Sala livre,<br>profissional ocupada';
+  return 'Sala ocupada';
+}
+
 async function montarMapaVagas(alvo, { data, duracao = 50, profissional_id }, aoEscolher) {
   if (!alvo) return;
   alvo.innerHTML = '<div class="td-secundario">Carregando disponibilidade…</div>';
@@ -461,9 +455,15 @@ async function montarMapaVagas(alvo, { data, duracao = 50, profissional_id }, ao
     const v = g.horarios.find(h => h.hora === hora);
     return v.livre
       ? `<button type="button" class="mapa-vaga" data-hora="${hora}" data-sala="${esc(g.sala)}">Livre<span class="quem">Toque para escolher</span></button>`
-      : `<div class="mapa-vaga ocupada" title="${esc(v.ocupado_por || v.detalhe || '')}">${v.motivo === 'bloqueio' ? 'Bloqueado' : 'Ocupado'}<span class="quem">${esc(v.ocupado_por || '')}</span></div>`;
+      : `<div class="mapa-vaga ${v.motivo === 'profissional' ? 'indisponivel' : 'ocupada'}"
+             title="${esc(v.ocupado_por || v.detalhe || '')}">${rotuloIndisponivel(v)}<span class="quem">${esc(v.ocupado_por || '')}</span></div>`;
   }).join('')}
       </div>`).join('')}
+    </div>
+    <div class="mapa-legenda">
+      <span><i class="marca-livre"></i> livre</span>
+      <span><i class="marca-ocupada"></i> sala ocupada</span>
+      <span><i class="marca-indisponivel"></i> a profissional já atende em outra sala</span>
     </div>`;
   alvo.querySelectorAll('.mapa-vaga[data-hora]').forEach(b => b.addEventListener('click', () => {
     alvo.querySelectorAll('.mapa-vaga').forEach(x => x.classList.remove('escolhida'));

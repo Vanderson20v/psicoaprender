@@ -161,7 +161,7 @@ const mais = (n) => { const d = new Date(hoje + 'T12:00'); d.setDate(d.getDate()
   textoMapa.includes('Horários de')
     ? ok('reposição: o mapa mostra o dia escolhido')
     : falha('reposição: mapa vazio: "' + textoMapa.trim().slice(0, 60) + '"');
-  textoMapa.includes('Ocupado')
+  /ocupad/i.test(textoMapa)
     ? ok('reposição: as 14:00 aparecem como ocupadas')
     : falha('reposição: não marcou o horário ocupado');
   const vagas = mapa.querySelectorAll('.mapa-vaga[data-hora]');
