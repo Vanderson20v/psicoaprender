@@ -624,3 +624,9 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 @media (max-width: 720px) { .caixa-confirma input { width: 22px; height: 22px; } }
 
 .versao-sistema { text-align: center; font-size: 10.5px; color: var(--tinta-3); opacity: .7; padding: 6px 0 2px; letter-spacing: .02em; }
+
+/* Mapa de vagas embutido em modais menores */
+.mapa-compacto { margin: 6px 0 10px; max-height: 260px; overflow-y: auto; border: 1px solid var(--linha); border-radius: var(--raio); padding: 10px 12px; background: var(--superficie-2); }
+.mapa-compacto .rotulo { margin-bottom: 8px; }
+.mapa-compacto .mapa-vaga { min-height: 34px; font-size: 12px; }
+@media (max-width: 720px) { .mapa-compacto { max-height: 220px; } .mapa-compacto .mapa-vaga { min-height: 44px; } }

@@ -153,15 +153,57 @@ const mais = (n) => { const d = new Date(hoje + 'T12:00'); d.setDate(d.getDate()
     ? ok('reposição: o impedimento aparece dentro da tela')
     : falha('reposição: impedimento só no rodapé, não na tela: "' + painel3.trim().slice(0, 70) + '"');
 
+  // ---------- o mapa de vagas: mostrar o que sobra no dia ----------
+  const mapa = d3.querySelector('#ds-mapa');
+  mapa ? ok('reposição: a tela traz o mapa de horários do dia') : falha('reposição: sem mapa de horários');
+  await espera(700);
+  const textoMapa = mapa.textContent;
+  textoMapa.includes('Horários de')
+    ? ok('reposição: o mapa mostra o dia escolhido')
+    : falha('reposição: mapa vazio: "' + textoMapa.trim().slice(0, 60) + '"');
+  textoMapa.includes('Ocupado')
+    ? ok('reposição: as 14:00 aparecem como ocupadas')
+    : falha('reposição: não marcou o horário ocupado');
+  const vagas = mapa.querySelectorAll('.mapa-vaga[data-hora]');
+  vagas.length > 0
+    ? ok('reposição: ' + vagas.length + ' vaga(s) livre(s) clicável(is) no dia')
+    : falha('reposição: nenhuma vaga clicável');
+
+  // tocar numa vaga preenche hora e sala
+  const escolhida = vagas[0];
+  escolhida.click();
+  await espera(200);
+  d3.querySelector('#ds-hora').value === escolhida.dataset.hora
+    ? ok('reposição: tocar na vaga preenche o horário (' + escolhida.dataset.hora + ')')
+    : falha('reposição: o toque não preencheu o horário');
+  d3.querySelector('#ds-sala').value === escolhida.dataset.sala
+    ? ok('reposição: e também a sala')
+    : falha('reposição: não preencheu a sala');
+  (d3.querySelector('#ds-aviso').textContent || '').includes('não está disponível')
+    ? falha('reposição: o erro antigo continuou depois de escolher outra vaga')
+    : ok('reposição: o aviso de erro some ao escolher uma vaga livre');
+
+  d3.querySelector('#ds-abrir-agenda')
+    ? ok('reposição: existe atalho para ver a agenda completa do dia')
+    : falha('reposição: sem atalho para a agenda');
+
+  // agora confirma e deve funcionar
+  d3.querySelector('#ds-salvar').click();
+  await espera(1200);
+  !w.document.querySelector('.modal-fundo')
+    ? ok('reposição: escolhendo vaga livre, a tela fecha e a reposição é criada')
+    : falha('reposição: não concluiu mesmo com vaga livre');
+
   const depois = (await chamar('GET', '/api/atendimentos?paciente_id=' + pacB.id));
-  depois.filter(a => a.reposicao_de).length === 0
-    ? ok('reposição: nenhuma reposição criada em cima de outra criança')
-    : falha('reposição: criou por cima');
+  const reposicoes = depois.filter(a => a.reposicao_de);
+  reposicoes.length === 1 && reposicoes[0].hora === escolhida.dataset.hora
+    ? ok('reposição: criada no horário livre escolhido, não em cima de ninguém')
+    : falha('reposição: ' + reposicoes.length + ' reposição(ões) em horário inesperado');
 
   const origDepois = depois.find(a => a.id === orig.id);
-  origDepois.status !== 'falta'
-    ? ok('reposição: a falta não é registrada antes de a data ser aceita')
-    : falha('reposição: registrou a falta mesmo sem conseguir marcar a reposição');
+  origDepois.status === 'falta'
+    ? ok('reposição: só então a falta é registrada')
+    : falha('reposição: a falta não foi registrada ao concluir');
 
   fim();
   function fim() {

@@ -175,8 +175,11 @@ Toque no horário → escolha **Registrar falta** (a família não veio) ou **Ca
 - **O motivo** (opcional)
 - **Se haverá reposição** — marcar agora, marcar depois, ou não haverá
 
-Se escolher **marcar agora**, é só informar a nova data, hora e sala: a reposição
-entra na agenda já ligada à sessão perdida.
+Se escolher **marcar agora**, o sistema mostra o **mapa de horários daquele dia** —
+as duas salas, hora a hora, com o que está livre e o que está ocupado (e por quem).
+Toque numa vaga livre e o horário e a sala se preenchem sozinhos. Se preferir olhar
+com calma, o botão **Ver a agenda deste dia** abre a agenda completa numa nova aba,
+sem perder o que você já preencheu.
 
 Se escolher **marcar depois** (o caso de "vamos ver na semana que vem"), fica como
 **reposição a marcar** nos alertas e na ficha da criança, até alguém definir a data.

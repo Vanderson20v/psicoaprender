@@ -116,8 +116,12 @@ function rotuloEvento(a) {
   return [primeiroNome(a.paciente?.nome), (a.paciente?.nome || '').split(' ')[1] || ''].join(' ').trim();
 }
 
-App.paginas.agenda = async (alvo) => {
+App.paginas.agenda = async (alvo, rota) => {
   const e = App.estadoAgenda;
+  /* Permite abrir a agenda já num dia específico (#/agenda?data=2026-09-10),
+     que é como as outras telas mandam a profissional conferir a disponibilidade. */
+  if (rota?.query?.data) e.data = rota.query.data;
+  if (rota?.query?.visao) e.visao = rota.query.visao;
   const base = new Date(e.data + 'T12:00:00');
   let de, ate;
   if (e.visao === 'dia' || e.visao === 'salas') { de = ate = e.data; }
@@ -428,6 +432,46 @@ function modalBloqueio(data, profs) {
 
 
 
+
+/* Mapa de vagas do dia: as duas salas lado a lado, hora a hora, com o que está
+   livre clicável. Nasceu dentro do agendamento avulso; virou peça solta porque
+   a mesma pergunta — "que horário sobra nesse dia?" — aparece em vários lugares.
+   Chama aoEscolher(hora, sala) quando a profissional toca numa vaga livre. */
+async function montarMapaVagas(alvo, { data, duracao = 50, profissional_id }, aoEscolher) {
+  if (!alvo) return;
+  alvo.innerHTML = '<div class="td-secundario">Carregando disponibilidade…</div>';
+  let dados;
+  try {
+    dados = await api.get('/api/agenda/disponibilidade', { data, duracao, profissional_id });
+  } catch (e) { alvo.innerHTML = `<div class="td-secundario">Não foi possível ler a agenda.</div>`; return; }
+
+  const horas = dados.grade[0].horarios.map(h => h.hora);
+  const livres = dados.grade.reduce((n, g) => n + g.horarios.filter(h => h.livre).length, 0);
+  alvo.innerHTML = `
+    <div class="rotulo" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span>Horários de ${dataBR(data)}</span>
+      <span class="td-secundario" style="font-weight:400">${livres ? livres + ' vaga(s) livre(s) — toque para escolher' : 'nenhuma vaga livre neste dia'}</span>
+    </div>
+    <div class="mapa-salas" style="--salas:${dados.salas.length}">
+      <div class="mapa-linha"><div></div>
+        ${dados.salas.map((x, i) => `<div class="sala-tag sala-${i + 1}" style="justify-content:center">${esc(x)}</div>`).join('')}</div>
+      ${horas.map(hora => `<div class="mapa-linha">
+        <div class="mapa-hora">${hora}</div>
+        ${dados.grade.map(g => {
+    const v = g.horarios.find(h => h.hora === hora);
+    return v.livre
+      ? `<button type="button" class="mapa-vaga" data-hora="${hora}" data-sala="${esc(g.sala)}">Livre<span class="quem">Toque para escolher</span></button>`
+      : `<div class="mapa-vaga ocupada" title="${esc(v.ocupado_por || v.detalhe || '')}">${v.motivo === 'bloqueio' ? 'Bloqueado' : 'Ocupado'}<span class="quem">${esc(v.ocupado_por || '')}</span></div>`;
+  }).join('')}
+      </div>`).join('')}
+    </div>`;
+  alvo.querySelectorAll('.mapa-vaga[data-hora]').forEach(b => b.addEventListener('click', () => {
+    alvo.querySelectorAll('.mapa-vaga').forEach(x => x.classList.remove('escolhida'));
+    b.classList.add('escolhida');
+    aoEscolher?.(b.dataset.hora, b.dataset.sala);
+  }));
+}
+
 /* --------- CADASTRO ALTERADO × AGENDA JÁ MARCADA ---------
    Quando os dias habituais mudam, os horários que já estão na agenda continuam
    lá. Isso é proposital: apagar sessão de criança sem avisar seria grave. Mas o
@@ -545,6 +589,10 @@ async function modalDesmarcar(at, paciente, situacao) {
           ${campo('Horário', entrada('rep_hora', at.hora, 'time', 'id="ds-hora"'))}
           ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="ds-sala"'))}
         </div>
+        <div id="ds-mapa" class="mapa-compacto"></div>
+        <div style="text-align:right">
+          <button type="button" class="btn btn-sutil" id="ds-abrir-agenda">${ico('agenda')} Ver a agenda deste dia</button>
+        </div>
       </div>
       <div id="ds-aviso"></div>
       <div id="ds-nota-depois" class="aviso atencao" style="display:none">
@@ -570,6 +618,23 @@ async function modalDesmarcar(at, paciente, situacao) {
       const origem = escolher('#ds-origem');
       const avisoPrevio = escolher('#ds-aviso');
       const reposicao = escolher('#ds-rep');
+
+      /* Mostrar o que sobra no dia evita o vaivém de tentar, errar e tentar de
+         novo. Tocar numa vaga preenche horário e sala. */
+      const campoData = f.querySelector('#ds-data');
+      const campoHora = f.querySelector('#ds-hora');
+      const campoSala = f.querySelector('#ds-sala');
+      const atualizarMapa = () => montarMapaVagas(
+        f.querySelector('#ds-mapa'),
+        { data: campoData.value, duracao: at.duracao || 50, profissional_id: at.profissional_id },
+        (hora, sala) => { campoHora.value = hora; campoSala.value = sala; f.querySelector('#ds-aviso').innerHTML = ''; }
+      );
+      campoData.addEventListener('change', atualizarMapa);
+      atualizarMapa();
+
+      f.querySelector('#ds-abrir-agenda').addEventListener('click', () => {
+        window.open(`sistema.html#/agenda?data=${campoData.value}&visao=salas`, '_blank');
+      });
 
       const painelAviso = f.querySelector('#ds-aviso');
 
@@ -603,8 +668,9 @@ async function modalDesmarcar(at, paciente, situacao) {
               painelAviso.innerHTML = `<div class="aviso erro">
                 <strong>Este horário não está disponível.</strong><br>
                 ${esc(o.mensagem || o.ocupado_por || 'Já existe compromisso nesta data.')}<br>
-                Escolha outra data ou horário, ou marque a reposição depois.
+                Escolha uma das vagas livres abaixo, troque a data, ou marque a reposição depois.
               </div>`;
+              atualizarMapa();          // mostra o que sobra no dia
               return;   // nada é gravado
             }
           } catch (e) {
@@ -657,11 +723,25 @@ async function modalReporPendente(at, paciente) {
         ${campo('Horário', entrada('rep_hora', at.hora, 'time', 'id="rp-hora"'))}
         ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="rp-sala"'))}
       </div>
+      <div id="rp-mapa" class="mapa-compacto"></div>
       <div id="rp-aviso"></div>
       <div class="ajuda">A reposição substitui a sessão perdida e não gera cobrança nova.</div>`,
     rodape: `<button class="btn" data-fechar>Cancelar</button>
       <button class="btn btn-primario" id="rp-salvar">Marcar na agenda</button>`,
-    aoAbrir: (f) => f.querySelector('#rp-salvar').addEventListener('click', async () => {
+    aoAbrir: (f) => {
+      const atualizarMapa = () => montarMapaVagas(
+        f.querySelector('#rp-mapa'),
+        { data: f.querySelector('#rp-data').value, duracao: at.duracao || 50, profissional_id: at.profissional_id },
+        (hora, sala) => {
+          f.querySelector('#rp-hora').value = hora;
+          f.querySelector('#rp-sala').value = sala;
+          f.querySelector('#rp-aviso').innerHTML = '';
+        }
+      );
+      f.querySelector('#rp-data').addEventListener('change', atualizarMapa);
+      atualizarMapa();
+
+      f.querySelector('#rp-salvar').addEventListener('click', async () => {
       const botao = f.querySelector('#rp-salvar');
       botao.disabled = true;
       f.querySelector('#rp-aviso').innerHTML = '';
@@ -674,9 +754,11 @@ async function modalReporPendente(at, paciente) {
         fecharModal(true); aviso('Reposição marcada na agenda.'); navegar();
       } catch (e) {
         botao.disabled = false;
-        f.querySelector('#rp-aviso').innerHTML = `<div class="aviso erro">${esc(e.message)}<br>Escolha outra data ou horário.</div>`;
+        f.querySelector('#rp-aviso').innerHTML = `<div class="aviso erro">${esc(e.message)}<br>Escolha uma das vagas livres acima ou troque a data.</div>`;
+        atualizarMapa();
       }
-    })
+      });
+    }
   });
 }
 
@@ -892,11 +974,19 @@ async function modalGerarAgenda(p) {
             <strong>${verificado.ocupadas} de ${verificado.total} horários não estão disponíveis.</strong>
             ${detalhes}
           </div>
+          <div style="text-align:right;margin-top:6px">
+            <button type="button" class="btn btn-sutil" id="ga-ver-agenda">${ico('agenda')} Ver a agenda desse dia</button>
+          </div>
           <label class="caixa-confirma">
             <input type="checkbox" id="ga-aceitar">
             <span>Entendi. Criar apenas os ${verificado.livres} horários livres e deixar
               as datas ocupadas de fora, para decidir depois.</span>
           </label>`;
+
+        const primeiroOcupado = verificado.por_horario.find(h => h.ocupadas.length)?.ocupadas[0]?.data;
+        f.querySelector('#ga-ver-agenda')?.addEventListener('click', () => {
+          window.open(`sistema.html#/agenda?data=${primeiroOcupado}&visao=salas`, '_blank');
+        });
 
         const aceitar = f.querySelector('#ga-aceitar');
         botao.textContent = verificado.livres
