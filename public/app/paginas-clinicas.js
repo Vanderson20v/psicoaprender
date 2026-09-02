@@ -920,7 +920,9 @@ function resumoHorarios(p) {
 /* Cria na agenda os horários habituais da criança, repetindo por algumas semanas.
    Nada é criado sem esta confirmação, e datas ocupadas nunca são atropeladas. */
 async function modalGerarAgenda(p) {
-  const horarios = horariosDe(p);
+  /* Cópia editável: escolher outro horário aqui dentro precisa valer para esta
+     geração — e, se a profissional quiser, também para o cadastro. */
+  let horarios = horariosDe(p).map(h => ({ ...h }));
   if (!horarios.length) return;
   const quinzenal = (p.frequencia || '').toLowerCase().includes('quinzenal');
   const passo = quinzenal ? 14 : 7;
@@ -949,6 +951,7 @@ async function modalGerarAgenda(p) {
         ${campo('Por quantas semanas', selecao('semanas', [4, 8, 12, 16, 24, 40], 12, 'id="ga-semanas"'))}
       </div>
       <ul class="lista-simples" id="ga-previa">${previa(hojeISO(), 12)}</ul>
+      <div id="ga-alterado"></div>
       <div id="ga-conflitos"></div>`,
     rodape: `<button class="btn" data-fechar>Agora não</button>
       <button class="btn btn-primario" id="ga-criar">Criar na agenda</button>`,
@@ -958,6 +961,28 @@ async function modalGerarAgenda(p) {
       const atualizar = () => f.querySelector('#ga-previa').innerHTML = previa(inicio.value, Number(semanas.value));
       inicio.addEventListener('change', atualizar);
       semanas.addEventListener('change', atualizar);
+
+      /* Escolher um horário na agenda tem de mudar alguma coisa — senão o
+         seletor é enfeite. Aqui ele reescreve o horário daquele dia da semana
+         nesta geração, e oferece gravar a mudança no cadastro. */
+      let alterou = false;
+      const trocarHorario = (data, hora, sala) => {
+        const dia = new Date(data + 'T12:00').getDay();
+        const atual = horarios.find(h => Number(h.dia) === dia);
+        if (atual) { atual.hora = hora; atual.sala = sala; }
+        else horarios.push({ dia, hora, sala });
+        alterou = true;
+        atualizar();
+        f.querySelector('#ga-alterado').innerHTML = `<div class="aviso info">
+            <strong>${DIAS[dia]} passou para ${hora}${sala ? ' · ' + esc(sala) : ''}.</strong>
+            <label class="caixa-confirma" style="margin-top:8px">
+              <input type="checkbox" id="ga-salvar-cadastro" checked>
+              <span>Atualizar também os dias habituais no cadastro de ${esc(p.nome)},
+                para o cadastro e a agenda não ficarem diferentes.</span>
+            </label>
+          </div>`;
+        verificar();
+      };
 
       /* Nunca criar em silêncio por cima de conflito: primeiro conferimos tudo,
          mostramos quem ocupa cada data e só seguimos com decisão explícita. */
@@ -1007,8 +1032,8 @@ async function modalGerarAgenda(p) {
         const primeiroOcupado = verificado.por_horario.find(h => h.ocupadas.length)?.ocupadas[0]?.data;
         f.querySelector('#ga-ver-agenda')?.addEventListener('click', () => abrirSeletorHorario({
           data: primeiroOcupado, profissional_id: p.profissional_id,
-          titulo: 'Agenda de ' + dataBR(primeiroOcupado),
-          aoEscolher: () => aviso('Para mudar o horário habitual, ajuste os dias no cadastro da criança.', 'atencao')
+          titulo: 'Escolher outro horário',
+          aoEscolher: (data, hora, sala) => trocarHorario(data, hora, sala)
         }));
 
         const aceitar = f.querySelector('#ga-aceitar');
@@ -1029,6 +1054,12 @@ async function modalGerarAgenda(p) {
         botao.disabled = true; botao.textContent = 'Criando…';
         let criados = 0;
         try {
+          if (alterou && f.querySelector('#ga-salvar-cadastro')?.checked) {
+            const primeiro = horarios.slice().sort((a, b) => a.dia - b.dia)[0];
+            await api.put('/api/pacientes/' + p.id, {
+              horarios, dia_semana: primeiro.dia, horario: primeiro.hora, sala: primeiro.sala
+            });
+          }
           for (const h of horarios) {
             const r = await api.post('/api/atendimentos', {
               paciente_id: p.id, profissional_id: p.profissional_id,

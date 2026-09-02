@@ -201,6 +201,60 @@ const somaDiasISO = (iso, n) => { const d = new Date(iso + 'T12:00'); d.setDate(
   aceitar.dispatchEvent(new w.Event('change'));
   criar.disabled === true ? ok('desmarcar volta a travar') : falha('não voltou a travar');
 
+  // ---------- escolher outro horário pela agenda resolve o conflito ----------
+  const verAgenda = w.document.querySelector('#ga-ver-agenda');
+  verAgenda ? ok('o painel de conflito oferece ver a agenda') : falha('sem botão de ver a agenda');
+  verAgenda.click();
+  await espera(900);
+  const sel = w.document.querySelector('.seletor-fundo');
+  sel ? ok('a agenda abre por cima, sem fechar o gerador') : falha('seletor não abriu');
+  w.document.querySelector('.modal-fundo') ? ok('o gerador continua aberto por baixo') : falha('o gerador fechou');
+
+  const vaga = sel.querySelector('.mapa-vaga[data-hora]');
+  const horaNova = vaga.dataset.hora;
+  vaga.click();
+  await espera(1200);
+
+  const aviso1 = w.document.querySelector('#ga-alterado')?.textContent || '';
+  aviso1.includes('passou para ' + horaNova)
+    ? ok('escolher um horário TROCA o horário daquele dia (' + horaNova + ')')
+    : falha('a escolha não mudou nada: "' + aviso1.replace(/\s+/g, ' ').trim().slice(0, 90) + '"');
+
+  const previaTexto = w.document.querySelector('#ga-previa').textContent;
+  previaTexto.includes(horaNova)
+    ? ok('a prévia dos horários já reflete a mudança')
+    : falha('a prévia não atualizou');
+
+  w.document.querySelector('#ga-salvar-cadastro')
+    ? ok('oferece gravar a mudança também no cadastro da criança')
+    : falha('não oferece atualizar o cadastro');
+
+  await espera(600);
+  const painelDepois = w.document.querySelector('#ga-conflitos').textContent;
+  painelDepois.includes('livres')
+    ? ok('com o novo horário o conflito desaparece')
+    : falha('continuou em conflito: "' + painelDepois.trim().slice(0, 80) + '"');
+  w.document.querySelector('#ga-criar').disabled === false
+    ? ok('e o botão criar libera sozinho')
+    : falha('botão continuou travado');
+
+  // criar e conferir que o cadastro foi atualizado junto
+  w.document.querySelector('#ga-criar').click();
+  await espera(2000);
+  const claraDepois = await chamar('GET', '/api/pacientes/' + clara.id);
+  claraDepois.horarios?.[0]?.hora === horaNova
+    ? ok('o cadastro da criança foi atualizado com o novo horário')
+    : falha('o cadastro ficou com ' + JSON.stringify(claraDepois.horarios));
+  const atsClara = await chamar('GET', '/api/atendimentos?paciente_id=' + clara.id);
+  atsClara.length && atsClara.every(a => a.hora === horaNova)
+    ? ok('e os ' + atsClara.length + ' atendimentos foram criados no horário novo')
+    : falha('atendimentos em horários inesperados: ' + JSON.stringify(atsClara.map(a => a.hora)));
+
+  // reabrir para o resto do teste
+  w.document.querySelectorAll('.modal-fundo, .seletor-fundo').forEach(m => m.remove());
+  await w.modalGerarAgenda(await chamar('GET', '/api/pacientes/' + clara.id));
+  await espera(900);
+
   // mudar a data some com o conflito
   const semConflito = new Date(hojeISO0 + 'T12:00');
   w.document.querySelector('#ga-inicio').value = somaDiasISO(hojeISO0, 200);
