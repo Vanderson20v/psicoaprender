@@ -15,6 +15,10 @@ app.use(express.json({ limit: '25mb' }));
 app.use(cookieParser());
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
+const fim2 = (hora, duracao = 50) => {
+  const t = Number(String(hora).slice(0, 2)) * 60 + Number(String(hora).slice(3, 5)) + Number(duracao || 50);
+  return String(Math.floor(t / 60) % 24).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+};
 const dataBR = (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—');
 const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v));
@@ -537,6 +541,11 @@ app.get('/api/agenda/disponibilidade', (req, res) => {
           livre: !c,
           motivo: c?.motivo || null,
           ocupado_por: c?.atendimento ? `${c.atendimento.paciente} · ${c.atendimento.profissional}` : (c?.bloqueio ? c.bloqueio.tipo : null),
+          /* Uma sessão de 50 min atravessa duas ou três faixas de 30. Sem dizer o
+             horário real dela, o mapa parece ter três atendimentos onde há um. */
+          sessao: c?.atendimento
+            ? { inicio: c.atendimento.hora, fim: fim2(c.atendimento.hora, c.atendimento.duracao) }
+            : (c?.bloqueio ? { inicio: c.bloqueio.hora_inicio, fim: c.bloqueio.hora_fim } : null),
           detalhe: c?.mensagem || null
         });
       }

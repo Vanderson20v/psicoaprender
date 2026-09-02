@@ -329,7 +329,7 @@ function modalWhatsapp(paciente, contexto = {}) {
 /* O menu segue a ordem real do trabalho: o que se faz hoje, quem é atendido,
    como o caso evolui e, por último, a gestão da clínica. Os títulos existem
    para que a profissional encontre pela etapa, não pelo nome da tela. */
-const VERSAO = '33';
+const VERSAO = '34';
 
 const MENU = [
   { grupo: 'O dia' },

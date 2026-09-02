@@ -456,7 +456,8 @@ async function montarMapaVagas(alvo, { data, duracao = 50, profissional_id }, ao
     return v.livre
       ? `<button type="button" class="mapa-vaga" data-hora="${hora}" data-sala="${esc(g.sala)}">Livre<span class="quem">Toque para escolher</span></button>`
       : `<div class="mapa-vaga ${v.motivo === 'profissional' ? 'indisponivel' : 'ocupada'}"
-             title="${esc(v.ocupado_por || v.detalhe || '')}">${rotuloIndisponivel(v)}<span class="quem">${esc(v.ocupado_por || '')}</span></div>`;
+             title="${esc(v.detalhe || v.ocupado_por || '')}">${rotuloIndisponivel(v)}<span class="quem">${v.sessao
+      ? `<b>${v.sessao.inicio}–${v.sessao.fim}</b><br>` : ''}${esc(v.ocupado_por || '')}</span></div>`;
   }).join('')}
       </div>`).join('')}
     </div>

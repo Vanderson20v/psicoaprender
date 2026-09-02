@@ -113,6 +113,23 @@ const mais = (n) => { const d = new Date(hoje + 'T12:00'); d.setDate(d.getDate()
     ? ok('o mapa traz legenda explicando as três situações')
     : falha('sem legenda');
 
+  /* Uma sessão de 50 min ocupa 3 faixas de 30: sem o horário real, parece três. */
+  const faixas = ['09:30', '10:00', '10:30'].map(hh =>
+    linhas.find(l => l.querySelector('.mapa-hora')?.textContent === hh)
+      ?.querySelectorAll('.mapa-vaga')[0]);
+  faixas.every(c => c && !c.classList.contains('mapa-vaga') === false && /ocupad/i.test(c.textContent))
+    ? ok('a sessão das 10:00 (50 min) ocupa as faixas 09:30, 10:00 e 10:30')
+    : falha('faixas afetadas de forma inesperada');
+
+  faixas.every(c => c.textContent.includes('10:00') && c.textContent.includes('10:50'))
+    ? ok('todas as três faixas mostram o mesmo horário real: 10:00–10:50')
+    : falha('as faixas não mostram o horário da sessão: "' + faixas.map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | ') + '"');
+
+  const semRepeticao = new Set(faixas.map(c => c.textContent.replace(/\s+/g, ' ').trim())).size === 1;
+  semRepeticao
+    ? ok('fica claro que é uma sessão só atravessando as faixas, não três')
+    : falha('as faixas mostram informações diferentes');
+
   // com outra profissional, a Sala 2 das 10:00 tem de aparecer livre
   const alvo2 = w.document.createElement('div');
   w.document.body.appendChild(alvo2);
