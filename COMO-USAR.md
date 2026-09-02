@@ -179,7 +179,16 @@ Depois de 21 dias esperando, o alerta sobe para prioridade alta.
 > cancelamento — com o motivo e quem desmarcou —, porque é assim que se enxerga a
 > frequência real da criança e se conversa com a família quando as faltas se repetem.
 
-Na agenda e na ficha, a reposição aparece com a etiqueta **reposição**.
+Na agenda e na ficha, a reposição aparece com a etiqueta **reposição de 05/09**, e ao
+abri-la o sistema mostra a data, o horário, quem desmarcou e o motivo registrado:
+
+> Esta é a **reposição** do atendimento de **05/09/2026** às 14:00, que não aconteceu
+> — a família desmarcou com antecedência.
+> Motivo registrado: *criança adoeceu*.
+> A sessão já foi cobrada na data original.
+
+A sessão perdida, por sua vez, mostra **em que dia foi reposta**. Assim, ao conversar
+com a família, a informação está inteira dos dois lados — sem depender de memória.
 
 **Bloqueios** servem para férias, reunião, almoço, feriado e ausência — o horário
 fica indisponível e ninguém marca em cima.

@@ -428,6 +428,15 @@ function modalBloqueio(data, profs) {
    telefone. Se o sistema não perguntar na hora, a combinação vira um bilhete
    no caderno e a criança perde a sessão. Três caminhos: marcar agora,
    marcar depois (vira pendência visível) ou não haverá reposição. */
+/* "que não aconteceu porque a família avisou com antecedência" — a frase existe
+   para a profissional ter o contexto na ponta da língua ao falar com a família. */
+function textoQuemDesmarcou(o) {
+  const quem = { familia: 'a família desmarcou', profissional: 'a profissional desmarcou' }[o.origem];
+  if (!quem) return '';
+  const aviso = { 'Com antecedência': ' com antecedência', 'Em cima da hora': ' em cima da hora', 'Sem aviso': ', sem aviso prévio' }[o.aviso_previo] || '';
+  return ` — ${quem}${aviso}`;
+}
+
 async function modalDesmarcar(at, paciente, situacao) {
   const familia = situacao === 'falta';
   abrirModal({
@@ -564,8 +573,19 @@ async function modalDetalheAtendimento(at) {
         <div style="margin-left:auto">${tag(at.status)}</div>
       </div>
       ${at.status === 'realizado' && !at.tem_registro ? `<div class="aviso atencao">Atendimento realizado sem diário registrado.</div>` : ''}
-      ${at.reposicao_de ? `<div class="aviso info">Esta é a <strong>reposição</strong> de um atendimento que não aconteceu. A sessão já foi cobrada na data original.</div>` : ''}
-      ${at.reposta_por ? `<div class="aviso ok">Sessão <strong>reposta</strong> em outra data.</div>` : ''}
+      ${at.origem_reposicao ? `<div class="aviso info">
+        Esta é a <strong>reposição</strong> do atendimento de
+        <strong>${dataBR(at.origem_reposicao.data)}</strong> às ${at.origem_reposicao.hora},
+        que não aconteceu${textoQuemDesmarcou(at.origem_reposicao)}.
+        ${at.origem_reposicao.motivo ? `<br>Motivo registrado: <em>${esc(at.origem_reposicao.motivo)}</em>.` : ''}
+        <br>A sessão já foi cobrada na data original.
+      </div>` : ''}
+      ${at.destino_reposicao ? `<div class="aviso ok">
+        Sessão <strong>reposta em ${dataBR(at.destino_reposicao.data)}</strong> às ${at.destino_reposicao.hora}.
+      </div>` : ''}
+      ${at.reposicao_pendente ? `<div class="aviso atencao">
+        <strong>Reposição a marcar.</strong> Ficou combinado repor esta sessão, mas a data ainda não foi definida.
+      </div>` : ''}
       <div class="rotulo">Alterar situação</div>
       <div class="escolhas" style="margin-bottom:16px">
         ${acoes.map(a => `<div class="escolha ${at.status === a[0] ? 'ativa' : ''}" data-status="${a[0]}">${a[1]}</div>`).join('')}
@@ -1347,7 +1367,11 @@ async function abaAgenda(cont, p) {
   const futuros = ats.filter(a => a.data >= hoje);
   const passados = ats.filter(a => a.data < hoje).reverse();
   const linha = (a) => `<tr class="clicavel" data-at="${a.id}">
-      <td class="td-principal">${dataBR(a.data)}${a.reposicao_de ? ' <span class="tag simples t-roxo">reposição</span>' : ''}</td><td>${a.hora}</td>
+      <td class="td-principal">${dataBR(a.data)}${a.origem_reposicao
+        ? ` <span class="tag simples t-roxo" title="Repõe o atendimento de ${dataBR(a.origem_reposicao.data)}">reposição de ${dataCurta(a.origem_reposicao.data)}</span>`
+        : ''}${a.destino_reposicao
+        ? ` <span class="tag simples t-roxo" title="Reposta em ${dataBR(a.destino_reposicao.data)}">reposta em ${dataCurta(a.destino_reposicao.data)}</span>`
+        : ''}${a.reposicao_pendente ? ' <span class="tag simples t-terra">repor</span>' : ''}</td><td>${a.hora}</td>
       <td class="td-secundario">${esc(a.tipo)}</td>
       <td>${salaTag(a.sala)}</td>
       <td class="td-secundario">${esc(primeiroNome(a.profissional?.nome))}</td>

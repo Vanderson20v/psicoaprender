@@ -267,8 +267,33 @@ function enriquecerAtendimento(a) {
     profissional: db.profissionais.byId(a.profissional_id),
     tem_registro: !!db.registros.findOne({ atendimento_id: a.id }),
     /* Combinaram repor, mas a data ainda não foi definida. */
-    reposicao_pendente: db.faltas.findOne({ atendimento_id: a.id, reposicao: 'Pendente' }) ? true : false
+    reposicao_pendente: db.faltas.findOne({ atendimento_id: a.id, reposicao: 'Pendente' }) ? true : false,
+    /* Os dois lados do vínculo carregam a data (e o porquê) da sessão perdida:
+       é o que a profissional precisa ter à mão ao falar com a família. */
+    ...dadosDaReposicao(a)
   };
+}
+
+function dadosDaReposicao(a) {
+  const extra = {};
+  if (a.reposicao_de) {
+    const original = db.atendimentos.byId(a.reposicao_de);
+    if (original) {
+      const falta = db.faltas.findOne({ atendimento_id: original.id });
+      extra.origem_reposicao = {
+        data: original.data, hora: original.hora,
+        situacao: original.status,                 // falta ou cancelado
+        origem: falta?.origem || '',               // familia | profissional | outro
+        motivo: falta?.motivo || '',
+        aviso_previo: falta?.aviso_previo || ''
+      };
+    }
+  }
+  if (a.reposta_por) {
+    const nova = db.atendimentos.byId(a.reposta_por);
+    if (nova) extra.destino_reposicao = { data: nova.data, hora: nova.hora, status: nova.status };
+  }
+  return extra;
 }
 
 /* A agenda é compartilhada para ninguém marcar em cima de ninguém, mas o horário de

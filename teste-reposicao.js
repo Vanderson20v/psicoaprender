@@ -83,6 +83,31 @@ const hoje = new Date().toLocaleDateString('en-CA');
     : falha('origem/motivo perdidos');
 
   // não pode repor duas vezes
+  // ---------- a reposição carrega a data e o porquê da sessão perdida ----------
+  const naAgenda = (await admin('GET', '/api/atendimentos?paciente_id=' + ana.id)).corpo
+    .find(a => a.id === nova.id);
+  naAgenda?.origem_reposicao?.data === orig.data
+    ? ok('a reposição informa a data do atendimento que não aconteceu (' + orig.data + ')')
+    : falha('não trouxe a data original: ' + JSON.stringify(naAgenda?.origem_reposicao));
+  naAgenda?.origem_reposicao?.hora === '14:00'
+    ? ok('e também o horário original')
+    : falha('sem o horário original');
+  naAgenda?.origem_reposicao?.motivo === 'criança adoeceu'
+    ? ok('o motivo registrado viaja junto (útil ao falar com a família)')
+    : falha('motivo não chegou: ' + naAgenda?.origem_reposicao?.motivo);
+  naAgenda?.origem_reposicao?.origem === 'familia' && naAgenda?.origem_reposicao?.aviso_previo === 'Com antecedência'
+    ? ok('quem desmarcou e se avisou antes também')
+    : falha('origem/aviso não chegaram');
+  naAgenda?.origem_reposicao?.situacao === 'falta'
+    ? ok('e a situação da sessão perdida (falta ou cancelamento)')
+    : falha('situação não chegou');
+
+  const originalNaAgenda = (await admin('GET', '/api/atendimentos?paciente_id=' + ana.id)).corpo
+    .find(a => a.id === orig.id);
+  originalNaAgenda?.destino_reposicao?.data === naAgenda.data
+    ? ok('o caminho inverso também: a sessão perdida diz em que dia foi reposta')
+    : falha('a original não informa a data da reposição');
+
   const duplicada = await admin('POST', '/api/atendimentos/' + orig.id + '/reposicao', {
     data: somaDias(hoje, 5), hora: '16:00'
   });
