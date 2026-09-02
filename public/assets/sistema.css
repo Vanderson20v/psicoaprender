@@ -589,3 +589,9 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   .dia-linha .dia-hora { grid-area: hora; height: 44px; }
   .dia-linha .dia-sala { grid-area: sala; height: 44px; }
 }
+
+/* Prévia dos horários que serão criados na agenda */
+.lista-simples { list-style: none; margin: 12px 0; padding: 12px 14px; font-size: 13px;
+  background: var(--superficie-2); border: 1px solid var(--linha); border-radius: var(--raio); }
+.lista-simples li { padding: 4px 0; }
+.lista-simples li + li { border-top: 1px solid var(--linha); }

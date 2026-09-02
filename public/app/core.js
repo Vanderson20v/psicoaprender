@@ -52,7 +52,11 @@ async function req(metodo, url, corpo) {
   });
   if (r.status === 401 && !url.includes('/login')) { encerrarSessao(); throw new Error('Sessão encerrada.'); }
   const dados = r.headers.get('content-type')?.includes('json') ? await r.json() : null;
-  if (!r.ok) throw new Error(dados?.erro || 'Não foi possível concluir a operação.');
+  if (!r.ok) {
+    const erro = new Error(dados?.erro || 'Não foi possível concluir a operação.');
+    erro.status = r.status; Object.assign(erro, dados || {});
+    throw erro;
+  }
   return dados;
 }
 const api = {

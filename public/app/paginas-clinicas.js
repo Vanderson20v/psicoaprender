@@ -535,6 +535,87 @@ function resumoHorarios(p) {
     .map(x => DIAS_CURTO[x.dia] + (x.hora ? ' ' + x.hora : '')).join(' · ');
 }
 
+
+/* Cria na agenda os horários habituais da criança, repetindo por algumas semanas.
+   Nada é criado sem esta confirmação, e datas ocupadas nunca são atropeladas. */
+async function modalGerarAgenda(p) {
+  const horarios = horariosDe(p);
+  if (!horarios.length) return;
+  const quinzenal = (p.frequencia || '').toLowerCase().includes('quinzenal');
+  const passo = quinzenal ? 14 : 7;
+
+  /* Primeira ocorrência de cada dia da semana a partir da data escolhida. */
+  const primeiraData = (inicio, dia) => {
+    const d = new Date(inicio + 'T12:00');
+    const diff = (Number(dia) - d.getDay() + 7) % 7;
+    return somaDias(inicio, diff);
+  };
+
+  const previa = (inicio, semanas) => horarios.slice().sort((a, b) => a.dia - b.dia).map(h => {
+    const ini = primeiraData(inicio, h.dia);
+    const fim = somaDias(ini, passo * (semanas - 1));
+    return `<li><strong>${DIAS[h.dia]} às ${h.hora}</strong>${h.sala ? ' · ' + esc(h.sala) : ''}
+      <span class="td-secundario"> — de ${dataBR(ini)} a ${dataBR(fim)}</span></li>`;
+  }).join('');
+
+  abrirModal({
+    titulo: 'Criar os horários na agenda?',
+    corpo: `<p class="td-secundario" style="margin-top:0">
+        ${esc(p.nome)} tem ${horarios.length} horário(s) habitual(is).
+        Posso já deixá-los marcados na agenda${quinzenal ? ', a cada 15 dias' : ''}.</p>
+      <div class="linha-campos dois">
+        ${campo('A partir de', entrada('inicio', hojeISO(), 'date', 'id="ga-inicio"'))}
+        ${campo('Por quantas semanas', selecao('semanas', [4, 8, 12, 16, 24, 40], 12, 'id="ga-semanas"'))}
+      </div>
+      <ul class="lista-simples" id="ga-previa">${previa(hojeISO(), 12)}</ul>
+      <div class="ajuda">Horários já ocupados por outra criança são pulados — nada é sobreposto.</div>`,
+    rodape: `<button class="btn" data-fechar>Agora não</button>
+      <button class="btn btn-primario" id="ga-criar">Criar na agenda</button>`,
+    aoAbrir: (f) => {
+      const inicio = f.querySelector('#ga-inicio');
+      const semanas = f.querySelector('#ga-semanas');
+      const atualizar = () => f.querySelector('#ga-previa').innerHTML = previa(inicio.value, Number(semanas.value));
+      inicio.addEventListener('change', atualizar);
+      semanas.addEventListener('change', atualizar);
+
+      f.querySelector('#ga-criar').addEventListener('click', async () => {
+        const botao = f.querySelector('#ga-criar');
+        botao.disabled = true; botao.textContent = 'Criando…';
+        let criados = 0; const ocupados = [];
+        for (const h of horarios) {
+          const corpo = {
+            paciente_id: p.id, profissional_id: p.profissional_id,
+            data: primeiraData(inicio.value, h.dia), hora: h.hora,
+            sala: h.sala || p.sala, valor: p.valor_sessao,
+            recorrente: true, repeticoes: Number(semanas.value),
+            intervalo: quinzenal ? 'quinzenal' : 'semanal'
+          };
+          try {
+            const r = await api.post('/api/atendimentos', corpo);
+            criados += r.length;
+          } catch (e) {
+            /* 409: alguma data está ocupada. Cria as livres e relata o resto. */
+            if (e.conflitos || String(e.message || e).includes('ocupad')) {
+              try {
+                const r = await api.post('/api/atendimentos', { ...corpo, ignorar_conflitos: true });
+                criados += r.length;
+                ocupados.push(`${DIAS_CURTO[h.dia]} ${h.hora}`);
+              } catch (e2) { ocupados.push(`${DIAS_CURTO[h.dia]} ${h.hora}`); }
+            } else { erroAviso(e); botao.disabled = false; botao.textContent = 'Criar na agenda'; return; }
+          }
+        }
+        fecharModal(true);
+        aviso(criados
+          ? `${criados} horário(s) criado(s) na agenda.` + (ocupados.length
+            ? ` Algumas datas de ${ocupados.join(' e ')} já estavam ocupadas e foram puladas.` : '')
+          : 'Nenhum horário criado — as datas já estavam ocupadas.', ocupados.length ? 'atencao' : 'ok');
+        location.hash = '#/paciente/' + p.id;
+        navegar();
+      });
+    }
+  });
+}
+
 async function modalPaciente(paciente = null) {
   const profs = await api.get('/api/profissionais');
   const p = paciente || {};
@@ -698,6 +779,11 @@ async function modalPaciente(paciente = null) {
         try {
           const salvo = paciente ? await api.put('/api/pacientes/' + paciente.id, d) : await api.post('/api/pacientes', d);
           fecharModal(true); aviso('Paciente salvo.');
+          /* Os dias habituais são só uma combinação; quem cria horário é a agenda.
+             Como quem preenche espera vê-los lá, oferecemos gerar na hora. */
+          if (d.horarios.length && d.horarios.every(h => h.hora)) {
+            return modalGerarAgenda({ ...salvo, horarios: d.horarios });
+          }
           if (!paciente) location.hash = '/paciente/' + salvo.id; else navegar();
         } catch (e) { erroAviso(e); }
       });
@@ -1135,12 +1221,17 @@ async function abaAgenda(cont, p) {
   cont.innerHTML = `
     <div class="painel" style="margin-bottom:16px">
       <div class="painel-titulo"><h2>Próximos atendimentos</h2>
-        <div class="acoes"><button class="btn btn-sutil" id="novo">${ico('mais')} Agendar</button></div></div>
-      <div class="painel-corpo sem-padding">${tabela(['Data', 'Hora', 'Tipo', 'Sala', 'Profissional', 'Status', ''], futuros.map(linha), { vazio: 'Nenhum atendimento agendado.' })}</div>
+        <div class="acoes">
+          ${horariosDe(p).length ? `<button class="btn btn-sutil" id="gerar-habituais">${ico('agenda')} Gerar horários habituais</button>` : ''}
+          <button class="btn btn-sutil" id="novo">${ico('mais')} Agendar</button></div></div>
+      <div class="painel-corpo sem-padding">${tabela(['Data', 'Hora', 'Tipo', 'Sala', 'Profissional', 'Status', ''], futuros.map(linha), { vazio: horariosDe(p).length
+        ? 'Nenhum atendimento agendado ainda. Os dias habituais do cadastro (' + esc(resumoHorarios(p)) + ') são apenas uma combinação — use "Gerar horários habituais" para marcá-los na agenda.'
+        : 'Nenhum atendimento agendado.' })}</div>
     </div>
     <div class="painel"><div class="painel-titulo"><h2>Histórico (${passados.length})</h2></div>
       <div class="painel-corpo sem-padding">${tabela(['Data', 'Hora', 'Tipo', 'Sala', 'Profissional', 'Status', ''], passados.slice(0, 40).map(linha))}</div></div>`;
   cont.querySelector('#novo').addEventListener('click', () => modalAtendimento({ paciente_id: p.id, data: hoje }));
+  cont.querySelector('#gerar-habituais')?.addEventListener('click', () => modalGerarAgenda(p));
   cont.querySelectorAll('[data-at]').forEach(tr => tr.addEventListener('click', () => modalDetalheAtendimento(ats.find(a => a.id === Number(tr.dataset.at)))));
 }
 

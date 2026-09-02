@@ -60,6 +60,11 @@ em que a criança vem. Se ela vem duas vezes por semana, marque os dois dias —
 com seu horário e sua sala, porque nem sempre são iguais. O segundo dia já vem com o
 horário do primeiro preenchido; é só corrigir se for diferente.
 
+Ao salvar, o sistema pergunta se deve **criar esses horários na agenda** e por
+quantas semanas. Os dias do cadastro são só a combinação; quem marca de fato é a
+agenda. Se você disser "agora não", pode gerar depois: ficha da criança → aba
+**Agenda** → **Gerar horários habituais**.
+
 ### Passo 2 — Marcar o primeiro horário
 
 **Agenda → Atendimento.** Escolha criança, dia, hora e sala.
@@ -233,6 +238,12 @@ são contagem de sessões, não opinião.
 **Perco o que escrevi se fechar sem querer?**
 O sistema avisa antes de sair com alterações pendentes. A anamnese pode ser salva
 pela metade quantas vezes quiser.
+
+**Preenchi os dias no cadastro e não apareceu nada na agenda. Por quê?**
+Os dias do cadastro são a combinação com a família, não os agendamentos. Ao salvar,
+o sistema oferece criá-los; se você fechou essa pergunta, vá na ficha da criança →
+aba **Agenda** → **Gerar horários habituais**. Horários já ocupados por outra
+criança são pulados, e gerar duas vezes não duplica nada.
 
 **Onde mudo as perguntas da anamnese?**
 Configurações → Anamnese (só administrador). Alterar o roteiro não apaga anamneses
