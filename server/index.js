@@ -482,6 +482,42 @@ app.delete('/api/atendimentos/:id', A.exigir('agenda'), (req, res) => {
 });
 
 /* ---- Disponibilidade: mapa de ocupação das salas em um dia ---- */
+
+/* Confere uma série ANTES de criar. A tela precisa poder mostrar o que está
+   ocupado, e por quem, sem já ter marcado metade das datas. */
+app.post('/api/agenda/verificar', A.exigir('agenda'), (req, res) => {
+  const { horarios = [], inicio, repeticoes = 1, intervalo = 'semanal', paciente_id, profissional_id } = req.body || {};
+  if (!inicio || !horarios.length) return res.status(400).json({ erro: 'Informe o início e ao menos um horário.' });
+  const paciente = db.pacientes.byId(paciente_id);
+  if (!paciente) return res.status(404).json({ erro: 'Paciente não encontrado.' });
+  const passo = intervalo === 'quinzenal' ? 14 : 7;
+  const prof = Number(profissional_id) || paciente.profissional_id;
+
+  const primeiraData = (dia) => {
+    const d = new Date(inicio + 'T12:00');
+    return addDias(inicio, (Number(dia) - d.getDay() + 7) % 7);
+  };
+
+  const resultado = horarios.map(h => {
+    const sala = h.sala || paciente.sala || salas()[0];
+    const datas = [];
+    let data = primeiraData(h.dia);
+    for (let i = 0; i < Math.min(Number(repeticoes), 60); i++) { datas.push(data); data = addDias(data, passo); }
+    const ocupadas = datas.map(data => {
+      const c = conflitoDeAgenda({ data, hora: h.hora, duracao: Number(h.duracao) || 50, sala, profissional_id: prof, usuario: req.usuario });
+      return c ? { data, motivo: c.motivo, mensagem: c.mensagem, ocupado_por: c.atendimento ? `${c.atendimento.paciente} · ${c.atendimento.profissional}` : (c.bloqueio?.tipo || '') } : null;
+    }).filter(Boolean);
+    return { dia: Number(h.dia), hora: h.hora, sala, total: datas.length, livres: datas.length - ocupadas.length, ocupadas };
+  });
+
+  res.json({
+    total: resultado.reduce((n, r) => n + r.total, 0),
+    livres: resultado.reduce((n, r) => n + r.livres, 0),
+    ocupadas: resultado.reduce((n, r) => n + r.ocupadas.length, 0),
+    por_horario: resultado
+  });
+});
+
 app.get('/api/agenda/disponibilidade', (req, res) => {
   const data = req.query.data || hojeISO();
   const duracao = Number(req.query.duracao) || db.config.get().duracao_padrao || 50;

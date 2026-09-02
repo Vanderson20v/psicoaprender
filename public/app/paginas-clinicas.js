@@ -724,7 +724,7 @@ async function modalGerarAgenda(p) {
         ${campo('Por quantas semanas', selecao('semanas', [4, 8, 12, 16, 24, 40], 12, 'id="ga-semanas"'))}
       </div>
       <ul class="lista-simples" id="ga-previa">${previa(hojeISO(), 12)}</ul>
-      <div class="ajuda">Horários já ocupados por outra criança são pulados — nada é sobreposto.</div>`,
+      <div id="ga-conflitos"></div>`,
     rodape: `<button class="btn" data-fechar>Agora não</button>
       <button class="btn btn-primario" id="ga-criar">Criar na agenda</button>`,
     aoAbrir: (f) => {
@@ -734,37 +734,86 @@ async function modalGerarAgenda(p) {
       inicio.addEventListener('change', atualizar);
       semanas.addEventListener('change', atualizar);
 
-      f.querySelector('#ga-criar').addEventListener('click', async () => {
-        const botao = f.querySelector('#ga-criar');
-        botao.disabled = true; botao.textContent = 'Criando…';
-        let criados = 0; const ocupados = [];
-        for (const h of horarios) {
-          const corpo = {
+      /* Nunca criar em silêncio por cima de conflito: primeiro conferimos tudo,
+         mostramos quem ocupa cada data e só seguimos com decisão explícita. */
+      const painel = f.querySelector('#ga-conflitos');
+      const botao = f.querySelector('#ga-criar');
+      let verificado = null;
+
+      const verificar = async () => {
+        painel.innerHTML = '<div class="td-secundario">Conferindo a agenda…</div>';
+        botao.disabled = true;
+        try {
+          verificado = await api.post('/api/agenda/verificar', {
             paciente_id: p.id, profissional_id: p.profissional_id,
-            data: primeiraData(inicio.value, h.dia), hora: h.hora,
-            sala: h.sala || p.sala, valor: p.valor_sessao,
-            recorrente: true, repeticoes: Number(semanas.value),
-            intervalo: quinzenal ? 'quinzenal' : 'semanal'
-          };
-          try {
-            const r = await api.post('/api/atendimentos', corpo);
+            inicio: inicio.value, repeticoes: Number(semanas.value),
+            intervalo: quinzenal ? 'quinzenal' : 'semanal',
+            horarios: horarios.map(h => ({ dia: h.dia, hora: h.hora, sala: h.sala || p.sala }))
+          });
+        } catch (e) { painel.innerHTML = ''; erroAviso(e); botao.disabled = false; return; }
+
+        if (!verificado.ocupadas) {
+          painel.innerHTML = `<div class="aviso ok">Todos os ${verificado.total} horários estão livres.</div>`;
+          botao.disabled = false; botao.textContent = 'Criar na agenda';
+          return;
+        }
+
+        const detalhes = verificado.por_horario.filter(h => h.ocupadas.length).map(h => `
+          <div style="margin-top:8px"><strong>${DIAS[h.dia]} às ${h.hora}</strong>
+            — ${h.ocupadas.length} de ${h.total} data(s) indisponível(is)
+            <ul class="lista-simples" style="margin:6px 0 0">
+              ${h.ocupadas.slice(0, 6).map(o => `<li>${dataBR(o.data)} — ${esc(o.ocupado_por || o.motivo || 'indisponível')}</li>`).join('')}
+              ${h.ocupadas.length > 6 ? `<li class="td-secundario">e mais ${h.ocupadas.length - 6}…</li>` : ''}
+            </ul></div>`).join('');
+
+        painel.innerHTML = `<div class="aviso erro">
+            <strong>${verificado.ocupadas} de ${verificado.total} horários não estão disponíveis.</strong>
+            ${detalhes}
+          </div>
+          <label class="caixa-confirma">
+            <input type="checkbox" id="ga-aceitar">
+            <span>Entendi. Criar apenas os ${verificado.livres} horários livres e deixar
+              as datas ocupadas de fora, para decidir depois.</span>
+          </label>`;
+
+        const aceitar = f.querySelector('#ga-aceitar');
+        botao.textContent = verificado.livres
+          ? `Criar os ${verificado.livres} horários livres` : 'Nenhum horário livre';
+        botao.disabled = true;
+        aceitar.addEventListener('change', () => {
+          botao.disabled = !(aceitar.checked && verificado.livres);
+        });
+      };
+
+      inicio.addEventListener('change', verificar);
+      semanas.addEventListener('change', verificar);
+      verificar();
+
+      botao.addEventListener('click', async () => {
+        if (botao.disabled) return;
+        botao.disabled = true; botao.textContent = 'Criando…';
+        let criados = 0;
+        try {
+          for (const h of horarios) {
+            const r = await api.post('/api/atendimentos', {
+              paciente_id: p.id, profissional_id: p.profissional_id,
+              data: primeiraData(inicio.value, h.dia), hora: h.hora,
+              sala: h.sala || p.sala, valor: p.valor_sessao,
+              recorrente: true, repeticoes: Number(semanas.value),
+              intervalo: quinzenal ? 'quinzenal' : 'semanal',
+              ignorar_conflitos: true      // já conferido e aceito na tela acima
+            });
             criados += r.length;
-          } catch (e) {
-            /* 409: alguma data está ocupada. Cria as livres e relata o resto. */
-            if (e.conflitos || String(e.message || e).includes('ocupad')) {
-              try {
-                const r = await api.post('/api/atendimentos', { ...corpo, ignorar_conflitos: true });
-                criados += r.length;
-                ocupados.push(`${DIAS_CURTO[h.dia]} ${h.hora}`);
-              } catch (e2) { ocupados.push(`${DIAS_CURTO[h.dia]} ${h.hora}`); }
-            } else { erroAviso(e); botao.disabled = false; botao.textContent = 'Criar na agenda'; return; }
           }
+        } catch (e) {
+          /* A tela continua aberta: a profissional decide o que fazer. */
+          botao.disabled = false; botao.textContent = 'Criar na agenda';
+          return erroAviso(e);
         }
         fecharModal(true);
-        aviso(criados
-          ? `${criados} horário(s) criado(s) na agenda.` + (ocupados.length
-            ? ` Algumas datas de ${ocupados.join(' e ')} já estavam ocupadas e foram puladas.` : '')
-          : 'Nenhum horário criado — as datas já estavam ocupadas.', ocupados.length ? 'atencao' : 'ok');
+        const pulados = verificado?.ocupadas || 0;
+        aviso(`${criados} horário(s) criado(s).` + (pulados ? ` ${pulados} data(s) ocupada(s) ficaram de fora.` : ''),
+          pulados ? 'atencao' : 'ok');
         location.hash = '#/paciente/' + p.id;
         navegar();
       });

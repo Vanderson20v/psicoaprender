@@ -61,7 +61,10 @@ com seu horário e sua sala, porque nem sempre são iguais. O segundo dia já ve
 horário do primeiro preenchido; é só corrigir se for diferente.
 
 Ao salvar, o sistema pergunta se deve **criar esses horários na agenda** e por
-quantas semanas. Os dias do cadastro são só a combinação; quem marca de fato é a
+quantas semanas. Antes de criar qualquer coisa, ele confere a agenda inteira: se
+alguma data estiver ocupada, mostra **quais** e **por quem** (criança e profissional),
+e não deixa seguir sem uma decisão sua — mudar a data ou concordar em criar só os
+horários livres, deixando os ocupados de fora para resolver depois. Os dias do cadastro são só a combinação; quem marca de fato é a
 agenda. Se você disser "agora não", pode gerar depois: ficha da criança → aba
 **Agenda** → **Gerar horários habituais**.
 
