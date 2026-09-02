@@ -385,8 +385,12 @@ async function modalAtendimento(pre = {}) {
             aviso1.insertAdjacentHTML('beforeend',
               `<button type="button" class="btn" id="pular">Criar apenas as datas livres</button>`);
             aviso1.querySelector('#pular').addEventListener('click', async () => {
-              const r = await api.post('/api/atendimentos', { ...d, ignorar_conflitos: true });
-              fecharModal(true); aviso(`${r.length} horário(s) criado(s); os ocupados foram ignorados.`); navegar();
+              try {
+                const r = await api.post('/api/atendimentos', { ...d, ignorar_conflitos: true });
+                fecharModal(true); aviso(`${r.length} horário(s) criado(s); os ocupados foram ignorados.`); navegar();
+              } catch (e2) {
+                aviso1.innerHTML = `<div class="aviso erro">${esc(e2.message)}</div>`;
+              }
             });
           }
           desenharMapa();
@@ -422,6 +426,77 @@ function modalBloqueio(data, profs) {
   });
 }
 
+
+
+/* --------- CADASTRO ALTERADO × AGENDA JÁ MARCADA ---------
+   Quando os dias habituais mudam, os horários que já estão na agenda continuam
+   lá. Isso é proposital: apagar sessão de criança sem avisar seria grave. Mas o
+   sistema tem de mostrar a divergência e oferecer o ajuste, em vez de deixar a
+   agenda dizendo uma coisa e o cadastro outra.
+   Devolve true se assumiu a conversa com a usuária. */
+async function conferirAgendaDoPaciente(p, antes, depois) {
+  const mesmo = (a, b) => Number(a.dia) === Number(b.dia) && a.hora === b.hora;
+  const removidos = antes.filter(a => !depois.some(b => mesmo(a, b)));
+  const acrescentados = depois.filter(b => !antes.some(a => mesmo(a, b)));
+  if (!removidos.length && !acrescentados.length) return false;
+
+  const hoje = hojeISO();
+  let futuros = [];
+  try { futuros = await api.get('/api/atendimentos', { paciente_id: p.id }); } catch (e) { return false; }
+
+  /* Só entram horários futuros ainda não acontecidos. Sessão realizada, falta
+     e reposição combinada à parte nunca são tocadas. */
+  const orfaos = futuros.filter(a =>
+    a.data >= hoje &&
+    ['agendado', 'confirmado'].includes(a.status) &&
+    !a.reposicao_de &&
+    removidos.some(r => Number(r.dia) === new Date(a.data + 'T12:00').getDay() && r.hora === a.hora));
+
+  if (!orfaos.length) {
+    if (acrescentados.length && depois.every(h => h.hora)) modalGerarAgenda({ ...p, horarios: depois });
+    else navegar();
+    return true;
+  }
+
+  const rotulo = (h) => `${DIAS[h.dia]} às ${h.hora}`;
+  abrirModal({
+    titulo: 'A agenda ficou diferente do cadastro',
+    corpo: `<p style="margin-top:0">Você ${removidos.length === 1 ? 'retirou' : 'retirou'}
+        <strong>${removidos.map(rotulo).join(' e ')}</strong> do cadastro de ${esc(p.nome)},
+        mas ainda há <strong>${orfaos.length} horário(s)</strong> marcado(s) na agenda nesse padrão.</p>
+      <ul class="lista-simples">
+        ${orfaos.slice(0, 8).map(a => `<li>${dataBR(a.data)} · ${a.hora} · ${esc(a.sala || '')}
+          <span class="td-secundario">— ${esc(a.status)}</span></li>`).join('')}
+        ${orfaos.length > 8 ? `<li class="td-secundario">e mais ${orfaos.length - 8}…</li>` : ''}
+      </ul>
+      <div class="ajuda">Atendimentos já realizados, faltas e reposições não entram nesta lista e não serão alterados.</div>`,
+    rodape: `<button class="btn" id="ag-manter">Manter na agenda</button>
+      <button class="btn btn-perigo" id="ag-remover">Remover os ${orfaos.length} horários</button>`,
+    aoAbrir: (f) => {
+      const seguir = () => {
+        if (acrescentados.length && depois.every(h => h.hora)) modalGerarAgenda({ ...p, horarios: depois });
+        else { fecharModal(true); navegar(); }
+      };
+      f.querySelector('#ag-manter').addEventListener('click', () => {
+        fecharModal(true);
+        aviso('Os horários foram mantidos na agenda.', 'atencao');
+        seguir();
+      });
+      f.querySelector('#ag-remover').addEventListener('click', async () => {
+        const botao = f.querySelector('#ag-remover');
+        botao.disabled = true; botao.textContent = 'Removendo…';
+        let n = 0;
+        for (const a of orfaos) {
+          try { await api.del('/api/atendimentos/' + a.id); n++; } catch (e) { /* segue */ }
+        }
+        fecharModal(true);
+        aviso(`${n} horário(s) removido(s) da agenda.`);
+        seguir();
+      });
+    }
+  });
+  return true;
+}
 
 /* ------------------------- DESMARCAR E REPOR -------------------------
    Uma sessão desmarcada quase sempre vem com uma reposição combinada por
@@ -471,6 +546,7 @@ async function modalDesmarcar(at, paciente, situacao) {
           ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="ds-sala"'))}
         </div>
       </div>
+      <div id="ds-aviso"></div>
       <div id="ds-nota-depois" class="aviso atencao" style="display:none">
         Vai ficar como <strong>reposição a marcar</strong> nos alertas e na ficha da criança,
         até que a nova data seja definida.
@@ -495,10 +571,49 @@ async function modalDesmarcar(at, paciente, situacao) {
       const avisoPrevio = escolher('#ds-aviso');
       const reposicao = escolher('#ds-rep');
 
+      const painelAviso = f.querySelector('#ds-aviso');
+
       f.querySelector('#ds-salvar').addEventListener('click', async () => {
         const rep = reposicao();
         const botao = f.querySelector('#ds-salvar');
+        painelAviso.innerHTML = '';
         botao.disabled = true;
+
+        /* Conferir a agenda ANTES de registrar a falta: se a data da reposição
+           estiver ocupada, nada pode ter acontecido — nem a falta, nem a
+           reposição —, e o impedimento tem de aparecer aqui dentro. */
+        if (rep === 'agora') {
+          const data = f.querySelector('#ds-data').value;
+          const hora = f.querySelector('#ds-hora').value;
+          const sala = f.querySelector('#ds-sala').value;
+          if (!data || !hora) {
+            botao.disabled = false;
+            painelAviso.innerHTML = `<div class="aviso erro">Informe a data e o horário da reposição.</div>`;
+            return;
+          }
+          try {
+            const check = await api.post('/api/agenda/verificar', {
+              paciente_id: at.paciente_id, profissional_id: at.profissional_id,
+              inicio: data, repeticoes: 1, intervalo: 'semanal',
+              horarios: [{ dia: new Date(data + 'T12:00').getDay(), hora, sala }]
+            });
+            if (check.ocupadas) {
+              const o = check.por_horario[0].ocupadas[0];
+              botao.disabled = false;
+              painelAviso.innerHTML = `<div class="aviso erro">
+                <strong>Este horário não está disponível.</strong><br>
+                ${esc(o.mensagem || o.ocupado_por || 'Já existe compromisso nesta data.')}<br>
+                Escolha outra data ou horário, ou marque a reposição depois.
+              </div>`;
+              return;   // nada é gravado
+            }
+          } catch (e) {
+            botao.disabled = false;
+            painelAviso.innerHTML = `<div class="aviso erro">${esc(e.message)}</div>`;
+            return;
+          }
+        }
+
         try {
           await api.put('/api/atendimentos/' + at.id, {
             status: situacao,
@@ -524,7 +639,7 @@ async function modalDesmarcar(at, paciente, situacao) {
           navegar();
         } catch (e) {
           botao.disabled = false;
-          erroAviso(e);   // sala ocupada, por exemplo: o registro da falta já foi salvo
+          painelAviso.innerHTML = `<div class="aviso erro">${esc(e.message)}</div>`;
         }
       });
     }
@@ -542,10 +657,14 @@ async function modalReporPendente(at, paciente) {
         ${campo('Horário', entrada('rep_hora', at.hora, 'time', 'id="rp-hora"'))}
         ${campo('Sala', selecao('rep_sala', SALAS.map(x => [x, x]), at.sala, 'id="rp-sala"'))}
       </div>
+      <div id="rp-aviso"></div>
       <div class="ajuda">A reposição substitui a sessão perdida e não gera cobrança nova.</div>`,
     rodape: `<button class="btn" data-fechar>Cancelar</button>
       <button class="btn btn-primario" id="rp-salvar">Marcar na agenda</button>`,
     aoAbrir: (f) => f.querySelector('#rp-salvar').addEventListener('click', async () => {
+      const botao = f.querySelector('#rp-salvar');
+      botao.disabled = true;
+      f.querySelector('#rp-aviso').innerHTML = '';
       try {
         await api.post('/api/atendimentos/' + at.id + '/reposicao', {
           data: f.querySelector('#rp-data').value,
@@ -553,7 +672,10 @@ async function modalReporPendente(at, paciente) {
           sala: f.querySelector('#rp-sala').value
         });
         fecharModal(true); aviso('Reposição marcada na agenda.'); navegar();
-      } catch (e) { erroAviso(e); }
+      } catch (e) {
+        botao.disabled = false;
+        f.querySelector('#rp-aviso').innerHTML = `<div class="aviso erro">${esc(e.message)}<br>Escolha outra data ou horário.</div>`;
+      }
     })
   });
 }
@@ -981,11 +1103,18 @@ async function modalPaciente(paciente = null) {
         if (esperado && d.horarios.length && d.horarios.length !== esperado) {
           aviso(`Atenção: a frequência diz "${d.frequencia}" mas ${d.horarios.length} dia(s) foram marcados.`, 'atencao');
         }
+        const horariosAntes = horariosDe(paciente || {});
         try {
           const salvo = paciente ? await api.put('/api/pacientes/' + paciente.id, d) : await api.post('/api/pacientes', d);
           fecharModal(true); aviso('Paciente salvo.');
-          /* Os dias habituais são só uma combinação; quem cria horário é a agenda.
-             Como quem preenche espera vê-los lá, oferecemos gerar na hora. */
+
+          /* Mudar os dias no cadastro não mexe sozinho na agenda — nem para criar,
+             nem para apagar. Mas deixar a agenda contradizendo o cadastro é pior:
+             conferimos as duas pontas e perguntamos o que fazer. */
+          if (paciente) {
+            const ajustou = await conferirAgendaDoPaciente(salvo, horariosAntes, d.horarios);
+            if (ajustou) return;
+          }
           if (d.horarios.length && d.horarios.every(h => h.hora)) {
             return modalGerarAgenda({ ...salvo, horarios: d.horarios });
           }

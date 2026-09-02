@@ -68,6 +68,11 @@ horários livres, deixando os ocupados de fora para resolver depois. Os dias do 
 agenda. Se você disser "agora não", pode gerar depois: ficha da criança → aba
 **Agenda** → **Gerar horários habituais**.
 
+**Se depois você mudar ou retirar os dias**, o sistema confere a agenda e avisa
+quando sobraram horários marcados no padrão antigo, listando quais. Você decide:
+**remover** esses horários futuros ou **manter** e resolver caso a caso. Sessões
+já realizadas, faltas e reposições nunca são alteradas.
+
 ### Passo 2 — Marcar o primeiro horário
 
 **Agenda → Atendimento.** Escolha criança, dia, hora e sala.

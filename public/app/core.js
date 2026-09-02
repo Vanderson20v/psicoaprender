@@ -270,6 +270,8 @@ function modalWhatsapp(paciente, contexto = {}) {
 /* O menu segue a ordem real do trabalho: o que se faz hoje, quem é atendido,
    como o caso evolui e, por último, a gestão da clínica. Os títulos existem
    para que a profissional encontre pela etapa, não pelo nome da tela. */
+const VERSAO = '29';
+
 const MENU = [
   { grupo: 'O dia' },
   { rota: 'dashboard', nome: 'Hoje', icone: 'painel' },
@@ -318,6 +320,7 @@ function montarLayout() {
           </div>
           <span style="margin-left:auto;opacity:.5">${ico('saida')}</span>
         </button>
+        <div class="versao-sistema" title="Use este número para conferir se está na versão mais recente">versão ${VERSAO}</div>
       </div>
     </aside>
     <div class="conteudo">

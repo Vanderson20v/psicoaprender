@@ -622,3 +622,5 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 }
 .caixa-confirma input { width: 18px; height: 18px; margin-top: 1px; flex: none; cursor: pointer; }
 @media (max-width: 720px) { .caixa-confirma input { width: 22px; height: 22px; } }
+
+.versao-sistema { text-align: center; font-size: 10.5px; color: var(--tinta-3); opacity: .7; padding: 6px 0 2px; letter-spacing: .02em; }
