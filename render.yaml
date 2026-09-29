@@ -1,21 +1,21 @@
-# Configuração de publicação no Render — PsicoAprender
-# O Render lê este arquivo sozinho ao criar o serviço a partir do repositório.
+# Render Blueprint — Vida Samambaia (plataforma gêmea do ORION).
+# No Render: New + → Blueprint → aponte para este arquivo no GitHub.
+# Depois cole as variáveis TURSO_DATABASE_URL e TURSO_AUTH_TOKEN (Environment).
 services:
   - type: web
-    name: psicoaprender
+    name: agua-vidasamambaia
     runtime: node
-    plan: free              # troque para "starter" quando for usar com dados reais
+    plan: free
     buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /
+    startCommand: node server.js
     envVars:
-      - key: NODE_VERSION
-        value: 20
-      - key: DADOS_DIR      # pasta onde ficam banco, anexos e backups
-        value: /var/dados
-    # Disco persistente: sem ele, os dados somem a cada nova publicação.
-    # O plano gratuito NÃO permite disco — descomente ao migrar para o plano pago.
-    # disk:
-    #   name: dados
-    #   mountPath: /var/dados
-    #   sizeGB: 1
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_GESTOR
+        value: "0"
+      - key: ADMIN_PASSWORD
+        sync: false   # defina no painel do Render (senha do admin)
+      - key: TURSO_DATABASE_URL
+        sync: false   # ex.: libsql://seu-banco-xxxx.turso.io
+      - key: TURSO_AUTH_TOKEN
+        sync: false

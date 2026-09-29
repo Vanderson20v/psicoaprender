@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conferência da sua unidade</title>
+  <link rel="stylesheet" href="/css/conferencia.css">
+</head>
+<body>
+  <header class="topo">
+    <img id="logo" alt="Logo do condomínio" style="display:none">
+    <div>
+      <h1 id="condo-nome">Carregando…</h1>
+      <p id="sub">Conferência de medição de água</p>
+    </div>
+  </header>
+  <div id="erro" class="erro" style="display:none"></div>
+
+  <div id="app" style="display:none">
+    <div class="cartao-unidade">
+      <div class="etq" id="uni-etq">—</div>
+      <div class="hid" id="uni-hid"></div>
+    </div>
+
+    <div class="filtro">
+      <label for="f-mes">Filtrar por mês:</label>
+      <select id="f-mes"></select>
+    </div>
+
+    <div id="detalhe"></div>
+
+    <h2 class="tit-hist">Evolução do consumo</h2>
+    <div class="cartao-mes" id="grafico-wrap"><div id="grafico"></div></div>
+
+    <h2 class="tit-hist">Histórico da unidade</h2>
+    <div id="historico"></div>
+    <p class="rodape">Estes são os registros de medição da sua unidade. Em caso de dúvida,
+      procure a administração do condomínio. O valor total é água + esgoto (100%), conforme tarifa CAESB.</p>
+  </div>
+
+  <script src="/js/conferencia.js"></script>
+</body>
+</html>

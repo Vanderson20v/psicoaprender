@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leitura inicial do hidrômetro</title>
+<style>
+  :root { --laranja:#ea580c; --laranja2:#f97316; --tinta:#292524; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif; background:#fff7ed; color:var(--tinta); }
+  .wrap { max-width:460px; margin:0 auto; padding:22px 16px 40px; }
+  .topo { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .topo img { width:54px; height:54px; border-radius:10px; object-fit:contain; background:#fff; border:1px solid #fed7aa; }
+  .topo h1 { font-size:17px; margin:0; }
+  .topo p { margin:2px 0 0; font-size:12.5px; color:#78716c; }
+  .card { background:#fff; border:1px solid #fed7aa; border-radius:14px; padding:18px 16px; box-shadow:0 2px 10px rgba(234,88,12,.06); }
+  .unidade { font-size:26px; font-weight:800; color:var(--laranja); margin:0 0 2px; }
+  .dica { font-size:13px; color:#57534e; margin:0 0 14px; line-height:1.45; }
+  label { display:block; font-size:12.5px; font-weight:600; margin:12px 0 4px; }
+  input, select { width:100%; padding:11px 12px; font-size:16px; border:1.5px solid #d6d3d1; border-radius:9px; background:#fff; color:var(--tinta); }
+  input:focus { outline:none; border-color:var(--laranja2); }
+  .foto-prev { width:100%; max-height:230px; object-fit:contain; border-radius:10px; border:1px solid #e7e5e4; margin-top:8px; background:#f5f5f4; display:none; }
+  .btn { display:block; width:100%; padding:13px; font-size:16px; font-weight:700; border:none; border-radius:10px; cursor:pointer; margin-top:16px; }
+  .btn-l { background:var(--laranja); color:#fff; }
+  .btn-l:active { transform:translateY(1px); }
+  .btn-g { background:transparent; color:var(--laranja); font-weight:600; font-size:14px; }
+  .erro { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:9px; padding:10px 12px; font-size:14px; margin-top:12px; display:none; }
+  .ok-box { text-align:center; padding:26px 10px; }
+  .ok-box .ico { font-size:46px; }
+  .ok-box h2 { margin:10px 0 6px; font-size:20px; }
+  .ok-box p { color:#57534e; font-size:14.5px; line-height:1.5; }
+  input[type=file]{ display:none; }
+  .foto-aviso { font-size:12px; color:#78716c; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topo">
+    <img id="logo" alt="logo" style="display:none;">
+    <div><h1 id="condo-nome">Carregando…</h1><p>Medição inicial — sem cobrança</p></div>
+  </div>
+
+  <div class="card" id="box-form" style="display:none;">
+    <p class="unidade" id="unidade-txt"></p>
+    <p class="dica">Informe o que está no <b>mostrador do hidrômetro</b> da sua unidade <b>antes de mudar</b>. Esse valor é só o ponto de partida da medição — <b>não gera cobrança</b>.</p>
+    <label for="hid">Número do hidrômetro (anéis gravados no relógio)</label>
+    <input id="hid" type="text" placeholder="ex.: S7025041" autocomplete="off">
+    <label for="ler">Leitura atual do mostrador (m³)</label>
+    <input id="ler" type="number" step="0.001" min="0" inputmode="decimal" placeholder="ex.: 00012,3">
+    <label for="dt">Data em que você está vendo isso</label>
+    <input id="dt" type="date">
+    <label for="foto">Foto do hidrômetro (prova da leitura)</label>
+    <button type="button" class="btn btn-l" id="btn-foto" style="margin-top:2px;background:#f5f5f4;color:var(--tinta);border:1.5px dashed #d6d3d1;">📷 Tirar / escolher foto</button>
+    <input id="foto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+    <p class="foto-aviso" id="foto-aviso"></p>
+    <img id="foto-prev" class="foto-prev" alt="prévia">
+    <div class="erro" id="erro"></div>
+    <button type="button" class="btn btn-l" id="btn-salvar">✅ Enviar leitura inicial</button>
+  </div>
+
+  <div class="card ok-box" id="box-ok" style="display:none;">
+    <div class="ico">✅</div>
+    <h2 id="ok-titulo">Leitura registrada!</h2>
+    <p>Pode fechar esta página. Obrigado pela colaboração!<br>Se precisar corrigir, reabra o mesmo link e envie de novo.</p>
+    <button type="button" class="btn btn-g" id="btn-corrigir">Corrigir valores</button>
+  </div>
+
+  <div class="card" id="box-erro" style="display:none;">
+    <div class="ok-box"><div class="ico">⚠️</div><h2>Link inválido</h2><p id="erro-txt">Este link não é mais válido. Peça um novo ao síndico/administração.</p></div>
+  </div>
+</div>
+<script src="/js/inicial.js"></script>
+</body>
+</html>

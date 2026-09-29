@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Medição de água</title>
+  <link rel="stylesheet" href="/css/medicao.css">
+</head>
+<body>
+  <header class="topo">
+    <img id="logo" alt="Logo do condomínio" style="display:none">
+    <div class="topo-info">
+      <h1 id="condo-nome">Carregando…</h1>
+      <p id="mes-info"></p>
+    </div>
+  </header>
+
+  <div id="erro" class="erro" style="display:none"></div>
+
+  <div id="app" style="display:none">
+    <div class="busca">
+      <input id="q" type="search" inputmode="search" autocomplete="off"
+             placeholder="🔎 Digite o número da unidade (ex.: 1204) ou hidrômetro">
+    </div>
+
+    <div class="progresso">
+      <span id="contagem">0 / 0 medições</span>
+      <span id="salvamento" class="salvo"></span>
+    </div>
+
+    <main id="cartao">
+      <!-- cartão da unidade -->
+    </main>
+
+    <div class="nav">
+      <button id="btn-ant" class="btn-sec" type="button">↑ Unidade anterior</button>
+      <button id="btn-prox" class="btn-pri" type="button">Próxima unidade →</button>
+    </div>
+    <p class="dica">Use os botões para percorrer as unidades, ou digite o número na busca.
+      A medição é salva automaticamente. Se o número digitado for menor que o do mês passado,
+      o campo fica <b style="color:#dc2626">vermelho</b> — confira antes de seguir.</p>
+  </div>
+
+  <script src="/js/medicao.js"></script>
+</body>
+</html>
